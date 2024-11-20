@@ -1,0 +1,28 @@
+// price explosion
+
+//@version=5
+indicator("testing", overlay=true)
+
+// bullish candle open / close
+highestCloseCandleBefore4 = ta.highest(source = close, length = 8)[4]
+lowestOpenCandleBefore4 = ta.lowest(source = open, length = 8)[4]
+
+// bullish candle size average between 4 and 16 previews candles
+bullishAverageCandle = (highestCloseCandleBefore4 - lowestOpenCandleBefore4)
+
+bullishSetup = highestCloseCandleBefore4 + 5 * bullishAverageCandle < close and highestCloseCandleBefore4 > lowestOpenCandleBefore4
+
+// =============================================================================================
+
+// bearish candle open / close
+lowestCloseCandleBefore4 = ta.lowest(source = close, length = 8)[4]
+highestOpenCandleBefore4 = ta.highest(source = open, length = 8)[4]
+
+// bearish candle size average between 4 and 16 previews candles
+bearishAverageCandle = (highestOpenCandleBefore4 - lowestCloseCandleBefore4)
+
+bearishSetup = lowestCloseCandleBefore4 - 5 * bearishAverageCandle > close and lowestCloseCandleBefore4 < highestOpenCandleBefore4
+
+// draw data to chart
+plotshape(bullishSetup, style=shape.arrowdown, color=color.red, location=location.abovebar, size = size.huge, text = "EXPLOSION", textcolor = color.red)
+plotshape(bearishSetup, style=shape.arrowup, color=color.red, location=location.belowbar, size = size.huge, text = "EXPLOSION", textcolor = color.red)

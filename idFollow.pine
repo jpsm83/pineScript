@@ -1,0 +1,57 @@
+//@version=5
+indicator("Follow trend", overlay=true)
+
+// setting the time frames
+currentTimeFrame = timeframe.period
+higherTimeFrame = switch currentTimeFrame
+    "5" =>"30"
+    "30" => "180"
+    "60" => "360"
+    "240" => "1D"
+    "1D" => "4D"
+
+higherHigherTimeFrame = switch currentTimeFrame
+    "5" =>"180"
+    "30" => "360"
+    "60" => "1D"
+    "240" => "4D"
+    "1D" => "1W"
+
+// get current emas
+ema9 = ta.ema(source = close, length = 9)
+ema21 = ta.ema(source = close, length = 21)
+
+// get higher emas
+ema9FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 9), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint
+ema21FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 21), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint
+
+// get higher higher emas
+ema9FromHigherHtf = request.security(syminfo.tickerid, higherHigherTimeFrame, ta.ema(close, 9), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint 
+ema21FromHigherHtf = request.security(syminfo.tickerid, higherHigherTimeFrame, ta.ema(close, 21), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint 
+
+// ==================================================================================================================================================================================================
+// FOLLOW ===================================================================================================================================================
+// ==================================================================================================================================================================================================
+
+followBullishMomentunHigherTf = (ema9FromHigherTf - ema21FromHigherTf) > (ema9FromHigherTf[1] - ema21FromHigherTf[1])
+followBearishMomentunHigherTf = (ema21FromHigherTf - ema9FromHigherTf) > (ema21FromHigherTf[1] - ema9FromHigherTf[1])
+
+followBullishMomentunHigherHigherTf = (ema9FromHigherHtf - ema21FromHigherHtf) > (ema9FromHigherHtf[1] - ema21FromHigherHtf[1])
+followBearishMomentunHigherHigherTf = (ema21FromHigherHtf - ema9FromHigherHtf) > (ema21FromHigherHtf[1] - ema9FromHigherHtf[1])
+
+followBullishEmasDirection = ema9FromHigherHtf > ema21FromHigherHtf and ema9FromHigherTf > ema21FromHigherTf and ema9 > ema21
+followBearishEmasDirection = ema9FromHigherHtf < ema21FromHigherHtf and ema9FromHigherTf < ema21FromHigherTf and ema9 < ema21
+
+followBullishSetup = followBullishMomentunHigherTf and followBullishMomentunHigherHigherTf and followBullishEmasDirection and barstate.isconfirmed
+followBearishSetup = followBearishMomentunHigherTf and followBearishMomentunHigherHigherTf and followBearishEmasDirection and barstate.isconfirmed
+
+// draw data to chart
+plotshape(followBullishSetup, style=shape.arrowup, color=color.orange, location=location.belowbar, size = size.huge, text = "FOLLOW", textcolor = color.orange)
+plotshape(followBearishSetup, style=shape.arrowdown, color=color.orange, location=location.abovebar, size = size.huge, text = "FOLLOW", textcolor = color.orange)
+
+// ==================================================================================================================================================================================================
+// alert =============================================================================================================================================================
+// ==================================================================================================================================================================================================
+
+// Define your alert condition
+alertcondition(followBullishSetup or followBearishSetup, title="Follow", message="Follow at {{ticker}}")

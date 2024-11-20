@@ -1,0 +1,58 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © jpsm83
+
+//@version=5
+indicator(shorttitle="Macd_Candle", title="Macd_Candle", overlay=true, timeframe="", timeframe_gaps=true)
+
+// =================================================================================================================
+// ======== CANDLES ================================================================================================
+// =================================================================================================================
+
+bullishEngulfing = open <= open[1] and close >= high[1] and (close - open > 3*(high - close))
+bullishPiercing = open[1] < close[1] and open < close and close >= high[1] and (close - open > 3*(high - close))
+bullishHammer = (((high - low) > 3* (open - close)) and ((close - low) / (.001 + high - low) > 0.6) and ((open - low) / (.001 + high - low) > 0.6))
+
+bullishCandle = bullishEngulfing or bullishPiercing or bullishHammer
+
+bearishEngulfing = open >= open[1] and close <= low[1] and (open - close > 3*(close - low))
+bearishPiercing = open[1] > close[1] and open > close and close <= low[1] and (open - close > 3*(close - low))
+shootingStar = (((high - low) > 3 * (close - open)) and ((open - low) / (.001 + high - low) > 0.6) and ((close - low) / (.001 + high - low) > 0.6))
+
+bearishCandle = bearishEngulfing or bearishPiercing or shootingStar
+
+// =================================================================================================================
+// ======== MACD ===================================================================================================
+// =================================================================================================================
+
+src = input(close, title="Source")
+macd_Line = input.int(defval = 12, minval = 1, maxval = 221, step = 1, title="MACD Line") // green
+signal_Line = input.int(defval = 26, minval = 1, maxval = 221, step = 1, title="Signal Line") // yellow
+hist_Line = input.int(defval = 9, minval = 1, maxval = 221, step = 1, title="Histogran Line")
+
+[macdLine, signalLine, histLine] = ta.macd(src, macd_Line, signal_Line, hist_Line)
+
+// =================================================================================================================
+// ======== STRATEGY ===============================================================================================
+// =================================================================================================================
+
+bullishMomentun = histLine > macdLine and histLine > histLine[1] and (macdLine > signalLine or ((macdLine - signalLine) < (macdLine[1] - signalLine[1])))
+bearishMomentun = histLine < macdLine and histLine < histLine[1] and (macdLine < signalLine or ((math.abs(macdLine) - math.abs(signalLine)) < (math.abs(macdLine[1]) - math.abs(signalLine[1]))))
+
+// =================================================================================================================
+// ======== BUY SELL ARROWS ========================================================================================
+// =================================================================================================================
+
+showMacdSignals = input(true, "Show MACD Signals")
+
+buyOportunity = bullishMomentun and bullishCandle and barstate.isconfirmed
+sellOportunity = bearishMomentun and bearishCandle and barstate.isconfirmed
+
+plotshape(buyOportunity and showMacdSignals, style=shape.labelup, color=color.green, location=location.belowbar, size = size.small)
+plotshape(sellOportunity and showMacdSignals, style=shape.labeldown, color=color.red, location=location.abovebar, size = size.small)
+
+// =================================================================================================================
+// ======== BUY SELL ALERTS ========================================================================================
+// =================================================================================================================
+
+alertcondition(buyOportunity, "Check for LONG setups", "LONG setup starting at {{ticker}}")
+alertcondition(sellOportunity, "Check for SHORT setups", "SHORT setup starting at {{ticker}}")

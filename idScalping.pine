@@ -1,0 +1,78 @@
+//@version=5
+indicator(title='Scalping', overlay=true)
+
+// setting the time frames
+currentTimeFrame = timeframe.period
+higherTimeFrame = switch currentTimeFrame
+    "5" =>"30"
+    "30" => "180"
+    "60" => "360"
+    "240" => "1D"
+    "1D" => "4D"
+
+// get indicators values
+[macdLine, signalLine, histLine] = request.security(syminfo.tickerid, timeframe.period, ta.macd(close, 12, 26, 9), lookahead = barmerge.lookahead_on) // Does not repaint
+
+// get higher emas
+ema50FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint
+
+// get current emas
+ema9 = ta.ema(source = close, length = 9)
+ema21 = ta.ema(source = close, length = 21)
+ema50 = ta.ema(source = close, length = 50)
+
+// =================================================================================================================
+// ========EMAS SETUP===============================================================================================
+// =================================================================================================================
+
+bullishHigherTimeFrame = close > ema50FromHigherTf
+bearishHigherTimeFrame = close < ema50FromHigherTf
+
+bullishEmas = ema50 > ema50[1] and ema9 > ema21 and (ema9 - ema21 > ema9[1] - ema21[1])
+bearishEmas = ema50 < ema50[1] and ema9 < ema21 and (ema21 - ema9 > ema21[1] - ema9[1])
+
+bullishPrice = open > ema50 and close > ema50
+bearishPrice = open < ema50 and close < ema50
+
+bullishEmasSetup = bullishHigherTimeFrame and bullishEmas and bullishPrice
+bearishEmasSetup = bearishHigherTimeFrame and bearishEmas and bearishPrice
+
+// =================================================================================================================
+// ========MACD SETUP===============================================================================================
+// =================================================================================================================
+
+bullishMacd = histLine > histLine[1] and signalLine < macdLine
+bearishMacd = histLine < histLine[1] and signalLine > macdLine
+
+// ================================================================================================================
+// ========ATR SETUP===============================================================================================
+// ================================================================================================================
+
+// Inputs
+a = input(1, title='Key Vaule. \'This changes the sensitivity\'')
+c = input(10, title='ATR Period')
+
+xATR = ta.atr(c)
+nLoss = a * xATR
+
+xATRTrailingStop = 0.0
+iff_1 = close > nz(xATRTrailingStop[1], 0) ? close - nLoss : close + nLoss
+iff_2 = close < nz(xATRTrailingStop[1], 0) and close[1] < nz(xATRTrailingStop[1], 0) ? math.min(nz(xATRTrailingStop[1]), close + nLoss) : iff_1
+xATRTrailingStop := close > nz(xATRTrailingStop[1], 0) and close[1] > nz(xATRTrailingStop[1], 0) ? math.max(nz(xATRTrailingStop[1]), close - nLoss) : iff_2
+
+pos = 0
+iff_3 = close[1] > nz(xATRTrailingStop[1], 0) and close < nz(xATRTrailingStop[1], 0) ? -1 : nz(pos[1], 0)
+pos := close[1] < nz(xATRTrailingStop[1], 0) and close > nz(xATRTrailingStop[1], 0) ? 1 : iff_3
+
+ema = ta.ema(close, 1)
+above = ta.crossover(ema, xATRTrailingStop)
+below = ta.crossover(xATRTrailingStop, ema)
+
+buy = close > xATRTrailingStop and above and bullishEmasSetup and bullishMacd and barstate.isconfirmed
+sell = close < xATRTrailingStop and below and bearishEmasSetup and bearishMacd and barstate.isconfirmed
+
+plotshape(buy, title='Scalp', text='Scalp', style=shape.arrowup, location=location.belowbar, color=color.rgb(219, 188, 62), textcolor=color.rgb(219, 188, 62), size=size.huge)
+plotshape(sell, title='Scalp', text='Scalp', style=shape.arrowdown, location=location.abovebar, color=color.rgb(219, 188, 62), textcolor=color.rgb(219, 188, 62), size=size.huge)
+
+// Define your alert condition
+alertcondition(buy or sell , title="Scalping", message="Scalping at {{ticker}}")

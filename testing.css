@@ -1,0 +1,39 @@
+.label-left-margin {
+	margin-left: 10px !important;
+}
+
+.light-green, .light-green:hover {
+    box-sizing: border-box;
+    background-color: #61de0f;
+    color: #61de0f;
+}
+
+.dark-green, .dark-green:hover {
+    box-sizing: border-box;
+    background-color: #3b9345;
+    color: #3b9345;
+}
+
+.dark-red, .dark-red:hover {
+    box-sizing: border-box;
+    background-color: #a70808;
+    color: #a70808;
+}
+
+.dark-yellow, .dark-yellow:hover {
+    box-sizing: border-box;
+    background-color: #b3a62d;
+    color: #b3a62d;
+}
+
+.light-yellow, .light-yellow:hover {
+    box-sizing: border-box;
+    background-color: #efe26f;
+    color: #efe26f;
+}
+
+.gray, .gray:hover {
+    box-sizing: border-box;
+    background-color: #8e8e8e;
+    color: #8e8e8e;
+}

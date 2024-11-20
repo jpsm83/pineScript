@@ -1,0 +1,159 @@
+// momentun and REVERSAL indicator
+
+//@version=5
+indicator("Joao 2023 indicator", overlay=true)
+
+// bullish candlesticks pattern
+morningStart = (close[2] < open[2] and math.max(open[1], close[1]) < close[2] and open > math.max(open[1], close[1]) and close > open)
+hammer = (((high - low) > 3* (open - close)) and ((close - low) / (.001 + high - low) > 0.6) and ((open - low) / (.001 + high - low) > 0.6))
+bullishEngulfing = (open[1] > close[1] and close > open and close >= open[1] and close[1] >= open and close - open > open[1] - close[1])
+bullishHarami = (open[1] > close[1] and close > open and close <= open[1] and close[1] <= open and close - open < open[1] - close[1])
+piercingLine = (close[1] < open[1] and open < low[1] and close > close[1] + ((open[1] - close[1]) / 2) and close < open[1])
+bullishBelt = (low == open and open < ta.lowest(10)[1] and open < close and close > ((high[1] - low[1]) / 2) + low[1])
+bullishKicker = (open[1] > close[1] and open >= open[1] and close > open)
+invertedHammer = (((high - low) > 3* (open - close)) and ((high - close) / (.001 + high - low) > 0.6) and ((high - open) / (.001 + high - low) > 0.6))
+bullishInsideBar = open[1] > close[1] and (0.30 * math.abs(open[1] - close[1])) > open[1] - close
+bullishCandle = morningStart or hammer or bullishEngulfing or bullishHarami or piercingLine or bullishBelt or bullishKicker or invertedHammer or bullishInsideBar
+
+// bearish candlesticks pattern
+eveningStar = (close[2] > open[2] and math.min(open[1], close[1]) > close[2] and open < math.min(open[1], close[1]) and close < open)
+hangingMan = (((high - low > 4* (open - close)) and ((close - low) / (.001+high - low) >= 0.75) and ((open - low) / (.001+high - low) >= 0.75)) and high[1] < open and high[2] < open)
+bearishEngulfing = (close[1] > open[1] and open > close and open >= close[1] and open[1] >= close and open - close > close[1] - open[1])
+bearishHarami = (close[1] > open[1] and open > close and open <= close[1] and open[1] <= close and open - close < close[1] - open[1])
+shootingStar = (open[1] < close[1] and open > close[1] and high - math.max(open, close) >= math.abs(open - close) * 3 and math.min(close, open) - low <= math.abs(open - close))
+bearishKicker = (open[1] < close[1] and open <= open[1] and close <= open)
+darkCloudCover = ((close[1] > open[1]) and (((close[1] + open[1]) / 2) > close) and (open > close) and (open > close[1]) and (close > open[1]) and ((open- close) / (.001+(high - low)) > 0.6))
+bearishInsideBar = open[1] < close[1] and (0.30 * math.abs(close[1] - open[1])) > close - open[1]
+bearishCandle = bearishHarami or eveningStar or bearishEngulfing or shootingStar or bearishKicker or hangingMan or darkCloudCover or bearishInsideBar
+
+// setting the time frames
+currentTimeFrame = timeframe.period
+higherTimeFrame = switch currentTimeFrame
+    "5" =>"30"
+    "30" => "240"
+    "60" => "480"
+    "240" => "1D"
+    "1D" => "1W"
+
+// get indicators values
+[macdLine, signalLine, histLine] = ta.macd(close, 12, 26, 9)
+
+// get accumulation/distribution
+accDist = ta.accdist
+accDistMomentunVolume = accDist > accDist[3]
+
+vwap = ta.vwap(source = close)
+plot(series = vwap, title = "vwap", color = color.new(color = color.white, transp = 60), linewidth = 2)
+
+// get current emas
+ema9 = ta.ema(source = close, length = 9)
+plot(series = ema9, title = "ema9", color = color.new(color = color.green, transp = 60), linewidth = 1)
+ema21 = ta.ema(source = close, length = 21)
+plot(series = ema21, title = "ema21", color = color.new(color = color.yellow, transp = 60), linewidth = 1)
+ema50 = ta.ema(source = close, length = 50)
+plot(series = ema50, title = "ema50", color = color.new(color = color.red, transp = 60), linewidth = 1)
+ema200 = ta.ema(source = close, length = 200)
+plot(series = ema200, title = "ema200", color = color.new(color = color.orange, transp = 0), linewidth = 2)
+
+// get higher emas
+ema200FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 200), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint
+ema50FromHigherTf = request.security(symbol = syminfo.tickerid, timeframe = higherTimeFrame, expression = ta.ema(source = close, length = 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint 
+ema21FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 21), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint
+ema9FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 9), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint
+
+// offset distance from higher ema200
+bullishOffsetEma200HigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(high, 200), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) + 3 * (request.security(syminfo.tickerid, higherTimeFrame, ta.ema(high, 200), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) - ema200FromHigherTf)
+bearishOffsetEma200HigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(low, 200), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) - 3 * (ema200FromHigherTf -  request.security(syminfo.tickerid, higherTimeFrame, ta.ema(low, 200), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on))
+
+// offset distance from current ema200
+bullishOffsetEma200 = ta.ema(high, 200) + 3* (ta.ema(high, 200) - ema200)
+bearishOffsetEma200 = ta.ema(low, 200) - 3* (ema200 - ta.ema(low, 200))
+
+// ==================================================================================================================================================================================================
+// REVERSAL ===================================================================================================================================================
+// ==================================================================================================================================================================================================
+
+// price position open and close
+REVERSAL_BullishPosition = close > ema200FromHigherTf and close > vwap and open < bullishOffsetEma200HigherTf
+REVERSAL_BearishPosition = close < ema200FromHigherTf and close < vwap and open > bearishOffsetEma200HigherTf
+
+// ema 9/21 momentun higher time frame
+REVERSAL_BullishEmaMomentunHigherTf = ema21FromHigherTf > ema21FromHigherTf[1] and (ema21FromHigherTf - ema9FromHigherTf) < (ema21FromHigherTf[1] - ema9FromHigherTf[1])
+REVERSAL_BearishEmaMomentunHigherTf = ema21FromHigherTf < ema21FromHigherTf[1] and (ema9FromHigherTf - ema21FromHigherTf) < (ema9FromHigherTf[1] - ema21FromHigherTf[1])
+
+// ema 9/21 current time frame
+REVERSAL_BullishEmaMomentun = ema9 > ema9[1] and ema9 > ema21
+REVERSAL_BearishEmaMomentun = ema9 < ema9[1] and ema9 < ema21
+
+// macd divergence
+REVERSAL_BullishMacd = histLine > histLine[1]
+REVERSAL_BearishMacd = histLine < histLine[1]
+
+// trading setups
+REVERSAL_BullishSetup = ta.lowest(source = low, length = 20) < ema200FromHigherTf and REVERSAL_BullishPosition and REVERSAL_BullishEmaMomentunHigherTf and bullishCandle and REVERSAL_BullishEmaMomentun and REVERSAL_BullishMacd
+REVERSAL_BearishSetup = ta.highest(source = high, length = 20) > ema200FromHigherTf and REVERSAL_BearishPosition and REVERSAL_BearishEmaMomentunHigherTf and bearishCandle and REVERSAL_BearishEmaMomentun and REVERSAL_BearishMacd
+
+// draw data to chart
+plotshape(REVERSAL_BullishSetup, style=shape.arrowup, color=color.green, location=location.belowbar, size = size.huge, text = "REVERSAL", textcolor = color.green)
+plotshape(REVERSAL_BearishSetup, style=shape.arrowdown, color=color.green, location=location.abovebar, size = size.huge, text = "REVERSAL", textcolor = color.green)
+
+// ==================================================================================================================================================================================================
+// MOMENTUN =============================================================================================================================================================
+// ==================================================================================================================================================================================================
+
+// price position open and close
+MOMENTUN_BullishPosition = close > ema200 and close > ema9 and close >= ema50FromHigherTf and open >= bearishOffsetEma200 and open <= bullishOffsetEma200
+MOMENTUN_BearishPosition = close < ema200 and close < ema9 and close <= ema50FromHigherTf and open <= bullishOffsetEma200 and open >= bearishOffsetEma200
+
+// emas direction and momentun
+MOMENTUN_BullishEma9FromHigherTf = ema9FromHigherTf > ema9FromHigherTf[1]
+MOMENTUN_BullishEma200 = ema200 >= ema200[1]
+MOMENTUN_BullishEmas = (ema9 - ema21) >= (ema9[1] - ema21[1]) and ema21 > ema50
+MOMENTUN_AllBullishDirection = MOMENTUN_BullishEma200 and MOMENTUN_BullishEma9FromHigherTf and MOMENTUN_BullishEmas
+
+MOMENTUN_BearishEma9FromHigherTf = ema9FromHigherTf < ema9FromHigherTf[1]
+MOMENTUN_BearishEma200 = ema200 <= ema200[1]
+MOMENTUN_BearishEmas = (ema21 - ema9) >= (ema21[1] - ema9[1]) and ema21 <= ema50
+MOMENTUN_AllBearishDirection = MOMENTUN_BearishEma200 and MOMENTUN_BearishEma9FromHigherTf and MOMENTUN_BearishEmas
+
+// macd divergence
+MOMENTUN_BullishMacd = histLine > histLine[1]
+MOMENTUN_BearishMacd = histLine < histLine[1]
+
+// trading setups
+MOMENTUN_BullishSetup = bullishCandle and MOMENTUN_BullishPosition and MOMENTUN_AllBullishDirection and MOMENTUN_BullishMacd
+MOMENTUN_BearishSetup = bearishCandle and MOMENTUN_BearishPosition and MOMENTUN_AllBearishDirection and MOMENTUN_BearishMacd
+
+// draw data to chart
+plotshape(MOMENTUN_BullishSetup, style=shape.arrowup, color=color.yellow, location=location.belowbar, size = size.huge, text = "MOMENTUN", textcolor = color.yellow)
+plotshape(MOMENTUN_BearishSetup, style=shape.arrowdown, color=color.yellow, location=location.abovebar, size = size.huge, text = "MOMENTUN", textcolor = color.yellow)
+
+// ==================================================================================================================================================================================================
+// CROSSOVER ===================================================================================================================================================
+// ==================================================================================================================================================================================================
+
+// ema 9/21 current time frame
+CROSSOVER_BullishEmaMomentun = ta.crossover(source1 = ema9, source2 = ema21) and close > ema200FromHigherTf
+CROSSOVER_BearishEmaMomentun = ta.crossover(source1 = ema21, source2 = ema9) and close < ema200FromHigherTf
+ 
+// macd divergence
+CROSSOVER_BullishMacd = histLine > histLine[1]
+CROSSOVER_BearishMacd = histLine < histLine[1]
+
+// trading setups
+CROSSOVER_BullishSetup = CROSSOVER_BullishEmaMomentun and open > bearishOffsetEma200 and open < bullishOffsetEma200
+CROSSOVER_BearishSetup = CROSSOVER_BearishEmaMomentun and open > bearishOffsetEma200 and open < bullishOffsetEma200
+
+// draw data to chart
+plotshape(CROSSOVER_BullishSetup, style=shape.arrowup, color=color.orange, location=location.belowbar, size = size.huge, text = "CROSSOVER", textcolor = color.orange)
+plotshape(CROSSOVER_BearishSetup, style=shape.arrowdown, color=color.orange, location=location.abovebar, size = size.huge, text = "CROSSOVER", textcolor = color.orange)
+
+// ==================================================================================================================================================================================================
+// alert =============================================================================================================================================================
+// ==================================================================================================================================================================================================
+
+repaintingDesable = false
+if (REVERSAL_BullishSetup or REVERSAL_BearishSetup or MOMENTUN_BullishSetup or MOMENTUN_BearishSetup or CROSSOVER_BullishSetup or CROSSOVER_BearishSetup) and barstate.isconfirmed
+    repaintingDesable := true
+
+alertcondition(repaintingDesable, title = "Joao 2023 indicator", message = "Oportunity at {{ticker}}")

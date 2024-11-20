@@ -1,0 +1,92 @@
+// jpsm83 - joao paulo - january 2024
+// Emas, Vwap and Opportunities Arrows
+
+//@version=5
+indicator("Joao20240106", overlay=true)
+
+// =================================================================================================================
+// ======== VWAP EMAs ==============================================================================================
+// emas, vwap and band of ema ======================================================================================
+// =================================================================================================================
+
+showVwap = input(false, "Show Vwap", inline = 'Vwap')
+vwapColor = input(color.new(color.white, 0), title = "", inline = 'Vwap')
+
+showEMA1 = input(false, "Show EMA1", inline = 'EMA1')
+ma1Value = input.int(defval = 9, title = "", minval = 1, maxval = 600, step = 1, inline = 'EMA1')
+ma1Color = input(color.new(color.green, 0), title = "9", inline = 'EMA1')
+
+showEMA2 = input(false, "Show EMA2", inline = 'EMA2')
+ma2Value = input.int(defval = 21, title = "", minval = 1, maxval = 600, step = 1, inline = 'EMA2')
+ma2Color = input(color.new(color.yellow, 0), title = "21", inline = 'EMA2')
+
+shoeEMA3 = input(false, "Show EMA3", inline = 'EMA3')
+ma3Value = input.int(defval = 30, title = "", minval = 1, maxval = 600, step = 1, inline = 'EMA3')
+ma3Color = input(color.new(color.white, 0), title = "30", inline = 'EMA3')
+
+showEMA4 = input(true, "Show EMA4", inline = 'EMA4')
+ma4Value = input.int(defval = 50, title = "", minval = 1, maxval = 600, step = 1, inline = 'EMA4')
+ma4Color = input(color.new(color.red, 0), title = "50", inline = 'EMA4')
+
+showEMA5 = input(false, "Show EMA5", inline = 'EMA5')
+ma5Value = input.int(defval = 100, title = "", minval = 1, maxval = 600, step = 1, inline = 'EMA5')
+ma5Color = input(color.new(color.blue, 0), title = "100", inline = 'EMA5')
+
+showEMA6 = input(true, "Show EMA6", inline = 'EMA6')
+ma6Value = input.int(defval = 200, title = "", minval = 1, maxval = 600, step = 1, inline = 'EMA6')
+ma6Color = input(color.new(color.orange, 0), title = "200", inline = 'EMA6')
+
+showBAND = input(false, "Show BAND", inline = 'BAND')
+bandEma = input.int(defval = 50, title = "", minval = 1, maxval = 600, step = 1, inline = 'BAND')
+bandValue = input.float(defval = 1.0, title = "", minval = 0.2, maxval = 50.0, step = 0.2, inline = 'BAND')
+bandColor = input(color.new(color.gray, 0), title = "BAND", inline = 'BAND')
+
+vwap = ta.vwap(source = close)
+plot(showVwap ? vwap : na, title = "Vwap", color = vwapColor)
+ema1 =ta.ema(close, ma1Value)
+plot(showEMA1 ? ema1 : na, title = "EMA1", color = ma1Color)
+ema2 = ta.ema(close, ma2Value)
+plot(showEMA2 ? ema2 : na, title = "EMA2", color = ma2Color)
+ema3 = ta.ema(close, ma3Value)
+plot(shoeEMA3 ? ema3 : na, title = "EMA3", color = ma3Color)
+ema4 = ta.ema(close, ma4Value)
+plot(showEMA4 ? ema4 : na, title = "EMA4", color = ma4Color)
+ema5 = ta.ema(close, ma5Value)
+plot(showEMA5 ? ema5 : na, title = "EMA5", color = ma5Color)
+ema6 = ta.ema(close, ma6Value)
+plot(showEMA6 ? ema6 : na, title = "EMA6", color = ma6Color)
+
+// offset distance from band ema ===================================================================================
+
+hightOffsetEma = bandValue * (ta.ema(high, bandEma) - ta.ema(close, bandEma)) + ta.ema(high, bandEma)
+lowerOffsetEma = ta.ema(low, bandEma) - (bandValue * (ta.ema(close, bandEma) - ta.ema(low, bandEma)))
+
+plot(showBAND ? hightOffsetEma : na, color = bandColor)
+plot(showBAND ? lowerOffsetEma : na, color = bandColor)
+
+// =================================================================================================================
+// ======== MACD ===================================================================================================
+// =================================================================================================================
+
+[macdLine, signalLine, histLine] = ta.macd(close, 12, 26, 9)
+
+// =================================================================================================================
+// ======== BUY SELL ARROWS ========================================================================================
+// when histogran is lower than signal line and macd line crossunder signal line or when histogran is higher =======
+// than signal line and macd line crossover signal line indicates the previews movement is loosing momentun ========
+// =================================================================================================================
+
+showArrows = input(true, "Show Arrows")
+
+bullishWeakning = histLine < signalLine and ta.crossunder(macdLine, signalLine) and barstate.isconfirmed
+bearishWeakning = histLine > signalLine and ta.crossover(macdLine, signalLine) and barstate.isconfirmed
+
+plotshape(bullishWeakning and showArrows, style=shape.labeldown, color=color.new(color.red, 90), location=location.abovebar, size=size.small)
+plotshape(bearishWeakning and showArrows, style=shape.labelup, color=color.new(color.green, 90), location=location.belowbar, size=size.small)
+
+// =================================================================================================================
+// ======== BUY SELL ALERTS ========================================================================================
+// =================================================================================================================
+
+alertcondition(bullishWeakning, "Bulls weaking", "{{ticker}} Bulls are loosing momentun")
+alertcondition(bearishWeakning, "Bears weaking", "{{ticker}} Bears are loosing momentun")

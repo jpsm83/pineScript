@@ -1,0 +1,113 @@
+//@version=5
+indicator("Emas & emas HTF + Emas/MACD crossing & emas HTF bias", overlay=true)
+
+// =================================================================================================================
+// ============= Emas ==============================================================================================
+// =================================================================================================================
+
+showEma1 = input(false, "Show ema 1", inline = 'Ema1', group = "Emas _____________________________________________")
+ma1Value = input.int(defval = 10, title = "", minval = 1, maxval = 4000, step = 1, inline = 'Ema1', group = "Emas _____________________________________________")
+ma1Color = input(color.new(color.green, 80), title = "", inline = 'Ema1', group = "Emas _____________________________________________")
+
+showEma2 = input(false, "Show ema 2", inline = 'Ema2', group = "Emas _____________________________________________")
+ma2Value = input.int(defval = 20, title = "", minval = 1, maxval = 4000, step = 1, inline = 'Ema2', group = "Emas _____________________________________________")
+ma2Color = input(color.new(color.yellow, 80), title = "", inline = 'Ema2', group = "Emas _____________________________________________")
+
+showEma3 = input(false, "Show ema 3", inline = 'Ema3', group = "Emas _____________________________________________")
+ma3Value = input.int(defval = 30, title = "", minval = 1, maxval = 4000, step = 1, inline = 'Ema3', group = "Emas _____________________________________________")
+ma3Color = input(color.new(color.white, 80), title = "", inline = 'Ema3', group = "Emas _____________________________________________")
+
+showEma4 = input(false, "Show ema 4", inline = 'Ema4', group = "Emas _____________________________________________")
+ma4Value = input.int(defval = 50, title = "", minval = 1, maxval = 4000, step = 1, inline = 'Ema4', group = "Emas _____________________________________________")
+ma4Color = input(color.new(color.red, 80), title = "", inline = 'Ema4', group = "Emas _____________________________________________")
+
+showEma5 = input(false, "Show ema 5", inline = 'Ema5', group = "Emas _____________________________________________")
+ma5Value = input.int(defval = 100, title = "", minval = 1, maxval = 4000, step = 1, inline = 'Ema5', group = "Emas _____________________________________________")
+ma5Color = input(color.new(color.blue, 80), title = "", inline = 'Ema5', group = "Emas _____________________________________________")
+
+showEma6 = input(false, "Show ema 6", inline = 'Ema6', group = "Emas _____________________________________________")
+ma6Value = input.int(defval = 200, title = "", minval = 1, maxval = 4000, step = 1, inline = 'Ema6', group = "Emas _____________________________________________")
+ma6Color = input(color.new(color.orange, 80), title = "", inline = 'Ema6', group = "Emas _____________________________________________")
+
+ema1 =ta.ema(close, ma1Value)
+plot(showEma1 ? ema1 : na, title = "Ema1", color = ma1Color)
+ema2 = ta.ema(close, ma2Value)
+plot(showEma2 ? ema2 : na, title = "Ema2", color = ma2Color)
+ema3 = ta.ema(close, ma3Value)
+plot(showEma3 ? ema3 : na, title = "Ema3", color = ma3Color)
+ema4 = ta.ema(close, ma4Value)
+plot(showEma4 ? ema4 : na, title = "Ema4", color = ma4Color)
+ema5 = ta.ema(close, ma5Value)
+plot(showEma5 ? ema5 : na, title = "Ema5", color = ma5Color)
+ema6 = ta.ema(close, ma6Value)
+plot(showEma6 ? ema6 : na, title = "Ema6", color = ma6Color)
+
+// Input for EMA Crossing (Dropdown)
+emaCrossingIndex = input.int(1, title="Ema nº to cross", options=[1, 2, 3, 4, 5, 6], tooltip = "This ema MUST be smaller than the ema below. Crossing between those 2 emas will be displayed!", group = "Emas cross _______________________________________")
+emaCrossing = switch emaCrossingIndex
+    1 => ema1
+    2 => ema2
+    3 => ema3
+    4 => ema4
+    5 => ema5
+    6 => ema6
+
+// Input for EMA Crossed (Dropdown)
+emaCrossedIndex = input.int(6, title="Ema nº to be crossed", options=[1, 2, 3, 4, 5, 6],  tooltip = "This ema MUST be bigger than the ema above. Crossing between those 2 emas will be displayed!", group = "Emas cross _______________________________________")
+emaCrossed = switch emaCrossedIndex
+    1 => ema1
+    2 => ema2
+    3 => ema3
+    4 => ema4
+    5 => ema5
+    6 => ema6
+
+buyEmasHtf = ta.crossover(emaCrossing, emaCrossed) and barstate.isconfirmed
+sellEmasHtf = ta.crossunder(emaCrossing, emaCrossed) and barstate.isconfirmed
+
+// =================================================================================================================
+// ============= MACD ==============================================================================================
+// =================================================================================================================
+
+[macdLine, signalLine, histLine] = ta.macd(close, 12, 26, 9)
+buyMacd = ta.crossunder(signalLine, macdLine) and emaCrossed < emaCrossing
+sellMacd = ta.crossover(signalLine, macdLine) and emaCrossed > emaCrossing
+
+// =================================================================================================================
+// ============= INPUT HIGHER TIMEFRAME ============================================================================
+// =================================================================================================================
+
+htfOptions = input.timeframe("D", title="Higher time frame", options=["5", "15", "30", "60", "120", "240", "D", "W"], tooltip = "Both emas on higer time frames have to be in the same direction and its distance difference cannot get smaller than the previews one. If it is, it indicate the momentun is getting weaker!",  group = "Higher time frame emas bias_______________________")
+
+showEmaAHtm = input(false, "Show ema A Htf", inline = 'EMAaHTF', group = "Higher time frame emas bias_______________________")
+emaHtfLengthA = input.int(defval = 10, title="", inline = "EMAaHTF", group = "Higher time frame emas bias_______________________")  // Define the EMA length for EMAa
+smHtfEma = request.security(syminfo.tickerid, htfOptions, ta.ema(close, emaHtfLengthA))
+plot(showEmaAHtm ? smHtfEma : na, title = "EMAaHTF", color = color.new(color.orange, 40))
+
+showEmabHtm = input(false, "Show ema B Htf", inline = 'EMAbHTF', group = "Higher time frame emas bias_______________________")
+emaHtfLengthB = input.int(defval = 20, title="", inline = 'EMAbHTF', group = "Higher time frame emas bias_______________________")  // Define the EMA length for EMAb
+bgHtfEma = request.security(syminfo.tickerid, htfOptions, ta.ema(close, emaHtfLengthB))
+plot(showEmabHtm ? bgHtfEma : na, title = "EMAbHTF", color = color.new(color.orange, 70))
+
+htfBuyBias = smHtfEma > bgHtfEma and (smHtfEma - bgHtfEma >= smHtfEma[3] - bgHtfEma[3])
+htfSellBias = smHtfEma < bgHtfEma and (bgHtfEma - smHtfEma >= bgHtfEma[3] - smHtfEma[3])
+
+// =================================================================================================================
+// ============= TRADING ===========================================================================================
+// =================================================================================================================
+
+buySignal = (buyEmasHtf or buyMacd) and htfBuyBias
+sellSignal = (sellEmasHtf or sellMacd) and htfSellBias
+
+// Plotting
+plotshape((buyEmasHtf and htfBuyBias), style=shape.labelup, color=color.new(color.green, 50), location=location.belowbar, size=size.small)
+plotshape((sellEmasHtf and htfSellBias), style=shape.labeldown, color=color.new(color.red, 50), location=location.abovebar, size=size.small)
+plotshape((buyMacd and htfBuyBias), style=shape.labelup, color=color.new(color.green, 90), location=location.belowbar, size=size.small)
+plotshape((sellMacd and htfSellBias), style=shape.labeldown, color=color.new(color.red, 90), location=location.abovebar, size=size.small)
+
+// =================================================================================================================
+// ============= ALERTS ============================================================================================
+// =================================================================================================================
+
+// Add these lines at the end of your script
+alertcondition(buySignal or sellSignal, title="Crossing emas", message="Emas corssed!")

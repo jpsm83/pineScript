@@ -1,0 +1,74 @@
+// confirmation small time frame
+
+//@version=5
+indicator("Joao 2023 indicator for confirmation small time frame", overlay=true)
+
+// setting the time frames
+currentTimeFrame = timeframe.period
+higherTimeFrame = switch currentTimeFrame
+    "5" =>"30"
+    "30" => "240"
+    "60" => "480"
+    "240" => "1D"
+    "1D" => "1W"
+
+// get accumulation/distribution
+accDist = ta.accdist
+accDistMomentunVolume = accDist > accDist[3]
+
+vwap = ta.vwap(source = close)
+plot(series = vwap, title = "vwap", color = color.new(color = color.white, transp = 60), linewidth = 2)
+
+// get current emas
+ema9 = ta.ema(source = close, length = 9)
+plot(series = ema9, title = "ema9", color = color.new(color = color.green, transp = 60), linewidth = 1)
+ema21 = ta.ema(source = close, length = 21)
+plot(series = ema21, title = "ema21", color = color.new(color = color.yellow, transp = 60), linewidth = 1)
+ema50 = ta.ema(source = close, length = 50)
+plot(series = ema50, title = "ema50", color = color.new(color = color.red, transp = 60), linewidth = 1)
+ema200 = ta.ema(source = close, length = 200)
+plot(series = ema200, title = "ema200", color = color.new(color = color.orange, transp = 0), linewidth = 2)
+
+// get higher emas
+ema200FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 200), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint
+ema21FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 21), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint
+ema9FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 9), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint
+
+// offset distance from current ema200
+bullishOffsetEma50 = ta.ema(high, 50) + 0.1*(ta.ema(high, 50) - ema50)
+bearishOffsetEma50 = ta.ema(low, 50) - 0.1*(ema50 - ta.ema(low, 50))
+
+// ==================================================================================================================================================================================================
+// confirmation =============================================================================================================================================================
+// ==================================================================================================================================================================================================
+
+// price position open and close
+CONFIRMATION_BullishCrossover = ta.crossover(source1 = ema9, source2 = ema21) and ema200FromHigherTf >= ema200FromHigherTf[1]
+CONFIRMATION_BearishCrossover = ta.crossover(source1 = ema21, source2 = ema9) and ema200FromHigherTf <= ema200FromHigherTf[1]
+
+// price loosing momentun higer TF
+CONFIRMATION_BullishMomentun = ema21FromHigherTf <= ema21FromHigherTf[1]
+CONFIRMATION_BearishMomentun = ema21FromHigherTf >= ema21FromHigherTf[1]
+
+// distance from ema21 to ema50 band
+CONFIRMATION_BullishBand = close > open and close > bullishOffsetEma50
+CONFIRMATION_BearishBand = close < open and close < bearishOffsetEma50
+
+// confirmation setup
+CONFIRMATION_Bullish = CONFIRMATION_BullishCrossover and CONFIRMATION_BullishBand and not accDistMomentunVolume and CONFIRMATION_BullishMomentun
+CONFIRMATION_Bearish = CONFIRMATION_BearishCrossover and CONFIRMATION_BearishBand and not accDistMomentunVolume and CONFIRMATION_BearishMomentun
+CONFIRMATION_BullishVolume = CONFIRMATION_BullishCrossover and CONFIRMATION_BullishBand and accDistMomentunVolume and CONFIRMATION_BullishMomentun
+CONFIRMATION_BearishVolume = CONFIRMATION_BearishCrossover and CONFIRMATION_BearishBand and accDistMomentunVolume and CONFIRMATION_BearishMomentun
+
+// draw data to chart
+plotshape(CONFIRMATION_Bullish, style=shape.arrowup, color=color.green, location=location.belowbar, size = size.huge, text = "CONFIRMATION", textcolor = color.green)
+plotshape(CONFIRMATION_Bearish, style=shape.arrowdown, color=color.green, location=location.abovebar, size = size.huge, text = "CONFIRMATION", textcolor = color.green)
+plotshape(CONFIRMATION_BullishVolume, style=shape.arrowup, color=color.yellow, location=location.belowbar, size = size.huge, text = "VOLUME", textcolor = color.yellow)
+plotshape(CONFIRMATION_BearishVolume, style=shape.arrowdown, color=color.yellow, location=location.abovebar, size = size.huge, text = "VOLUME", textcolor = color.yellow)
+
+// send alert
+repaintingDesable = false
+if (CONFIRMATION_Bullish or CONFIRMATION_Bearish or CONFIRMATION_BullishVolume or CONFIRMATION_BearishVolume) and barstate.isconfirmed
+    repaintingDesable := true
+
+alertcondition(repaintingDesable, title = "Joao 2023 indicator for confirmation small time frame", message = "Confirmation at {{ticker}}")

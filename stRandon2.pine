@@ -1,0 +1,112 @@
+//@version=5
+strategy("testing2", overlay=true, calc_on_order_fills=true, initial_capital=10000)
+
+// Risk Settings
+var g_risk      = "Risk Settings"
+rr              = input.float(title="Risk:Reward", defval=1.0, group=g_risk, tooltip="This determines the risk:reward profile of the setup")
+
+// Filters inputs
+startBalance    = input.float(title="Starting Balance", defval=10000.0, tooltip="Your starting balance for the inbuilt tester system")
+pc_risk         = input.float(title="Risk Per Trade", defval=1, step=0.5, tooltip="This is how much to risk per trade (% of balance or lots)")
+pc_spread       = input.float(title="Spread", defval=0.5, tooltip="Enter your average spread for this pair (used for offsetting limit order)")
+
+// get indicators values
+vwap = ta.vwap(hlc3)
+ema200From5m = ta.ema(close, 200)
+ema21From5m = ta.ema(close, 21)
+ema9From5m = ta.ema(close, 9)
+ema200From30 = request.security(syminfo.tickerid, "30", ta.ema(close, 200))
+ema200From4h = request.security(syminfo.tickerid, "240", ta.ema(close, 200))
+
+//trade varibles
+stopLoss = 0.0
+takeProfit = 0.0
+enterPrice = 0.0
+
+// candlestick pattern
+bullishEngulfing = close >= open[1] and open <= open[1]
+bearishEngulfing = close <= open[1] and open >= open[1]
+
+// candlestick position 
+bullishPosition = low - 0.0010 <= vwap
+bearishPosition = high + 0.0010 >= vwap
+
+// candlestick cross ema
+bullishCross = close >= ema21From5m
+bearishCross = close <= ema21From5m
+
+// emas & vwap direction
+bullishEma200From30 = ema200From30 >= ema200From30[8] // 4 hours average
+bearishEma200From30 = ema200From30 <= ema200From30[8] // 4 hours average
+bullishEma200From4h = ema200From4h >= ema200From4h[4] // 1 day average
+bearishEma200From4h = ema200From4h <= ema200From4h[4] // 1 day average
+bullishEma200From5m = ema200From5m >= ema200From5m[12] // 1 hour average
+bearishEma200From5m = ema200From5m <= ema200From5m[12] // 1 hour average
+bullishVwap = vwap >= vwap[12] // i hour average
+bearishVwap = vwap <= vwap[12] // i hour average
+
+// ema200 distance from price
+bullishSpread = close - ema21From5m >= 0.0004
+bearishSpread = ema21From5m - open >= 0.0004
+
+// trading setups
+bullishSetup = bullishEngulfing and bullishPosition and bullishCross and bullishEma200From30 and bullishEma200From4h and bullishEma200From5m and bullishVwap and bullishSpread
+bearishSetup = bearishEngulfing and bearishPosition and bearishCross and bearishEma200From30 and bearishEma200From4h and bearishEma200From5m and bearishVwap and bearishSpread
+
+// timeline to test strategy
+startStrategy = timestamp(2022,1,1,1,1,1)
+endStrategy = timestamp(2023,1,1,1,1,1)
+
+// alter trade variables
+if bullishSetup
+    // calculate stoploss and takeprofit bullish trade
+    bullishlowestWick = 100000000.0
+
+    for i = 0 to 4
+        if low[i] < bullishlowestWick
+            bullishlowestWick := low[i] - 0.0010
+
+    stopLoss := bullishlowestWick
+    takeProfit := 2 * (close - bullishlowestWick) + close
+    enterPrice := close
+    
+else if bearishSetup     
+    // calculate stoploss and takeprofit bearish trade
+    bearishhighestWick = 0.0
+
+    for i = 0 to 4
+        if high[i] > bearishhighestWick
+            bearishhighestWick := high[i] + 0.0010
+
+    stopLoss := bearishhighestWick
+    takeProfit := close - 2 * (bearishhighestWick - close)
+    enterPrice := close
+   
+// buy and sell conditions
+buyCondiction = bullishSetup and strategy.position_size == 0
+sellCondiction = bearishSetup and strategy.position_size > 0
+
+if time >= startStrategy and time <= endStrategy
+    // strategy testing long and short
+    if buyCondiction
+        strategy.entry("Long", strategy.long, 100.0, when = buyCondiction)
+
+    // // exit positions
+    if sellCondiction        
+        strategy.close("Long", when = stopLoss)
+        strategy.close("Long", when = takeProfit)
+        strategy.close("Long", when = buyCondiction)
+        stopLoss := 0.0
+        takeProfit := 0.0
+        enterPrice := 0.0
+
+
+// strategy.entry("Short", strategy.short, 100.0, when = bullishSetup)
+
+
+// draw data to chart
+plotshape(bullishSetup, style=shape.arrowup, color=color.green, location=location.belowbar, size = size.huge, text = "BUY", textcolor = color.green)
+plotshape(bearishSetup, style=shape.arrowdown, color=color.red, location=location.abovebar, size = size.huge, text = "SELL", textcolor = color.red)
+
+// send alert
+alertcondition(bullishSetup or bearishSetup, title = "vwap2 strategy buy & sell", message = "candle triggered a trade at {{ticker}}")

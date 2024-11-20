@@ -1,0 +1,138 @@
+//@version=5
+indicator("testing"
+  , overlay = true
+  , max_labels_count = 500
+  , max_lines_count = 500
+  , max_boxes_count = 500
+  , max_bars_back = 500)
+
+//----------------------------------------}
+//Previous day/week high/low
+//----------------------------------------{
+//Daily
+show_pdhl = input(true, 'Daily'
+  , inline = 'daily'
+  , group = 'Highs & Lows MTF')
+
+pdhl_style = input.string('⎯⎯⎯', ''
+  , options = ['⎯⎯⎯', '----', '····']
+  , inline = 'daily'
+  , group = 'Highs & Lows MTF')
+
+pdhl_css = input(#2157f3, ''
+  , inline = 'daily'
+  , group = 'Highs & Lows MTF')
+
+//Weekly
+show_pwhl = input(true, 'Weekly'
+  , inline = 'weekly'
+  , group = 'Highs & Lows MTF')
+
+pwhl_style = input.string('⎯⎯⎯', ''
+  , options = ['⎯⎯⎯', '----', '····']
+  , inline = 'weekly'
+  , group = 'Highs & Lows MTF')
+
+pwhl_css = input(#2157f3, ''
+  , inline = 'weekly'
+  , group = 'Highs & Lows MTF')
+
+//Monthly
+show_pmhl = input(true, 'Monthly'
+  , inline = 'monthly'
+  , group = 'Highs & Lows MTF')
+
+pmhl_style = input.string('⎯⎯⎯', ''
+  , options = ['⎯⎯⎯', '----', '····']
+  , inline = 'monthly'
+  , group = 'Highs & Lows MTF')
+
+pmhl_css = input(#2157f3, ''
+  , inline = 'monthly'
+  , group = 'Highs & Lows MTF')
+
+
+//HL Output function
+hl() => [high, low]
+
+//Line Style function
+get_line_style(style) =>
+    out = switch style
+        '⎯⎯⎯'  => line.style_solid
+        '----' => line.style_dashed
+        '····' => line.style_dotted
+
+//Set line/labels function for previous high/lows
+phl(h, l, tf, css)=>
+    var line high_line = line.new(na,na,na,na
+      , xloc = xloc.bar_time
+      , color = css
+      , style = get_line_style(pdhl_style))
+
+    var label high_lbl = label.new(na,na
+      , xloc = xloc.bar_time
+      , text = str.format('P{0}H', tf)
+      , textcolor = css
+      , size = size.small
+      , style = label.style_label_left)
+
+    var line low_line = line.new(na,na,na,na
+      , xloc = xloc.bar_time
+      , color = css
+      , style = get_line_style(pdhl_style))
+
+    var label low_lbl = label.new(na,na
+      , xloc = xloc.bar_time
+      , text = str.format('P{0}L', tf)
+      , textcolor = css
+      , size = size.small
+      , style = label.style_label_left)
+
+    hy = ta.valuewhen(h != h[1], h, 1)
+    hx = ta.valuewhen(h == high, time, 1)
+
+    ly = ta.valuewhen(l != l[1], l, 1)
+    lx = ta.valuewhen(l == low, time, 1)
+
+    if barstate.islast
+        ext = time + (time - time[1])*20
+
+        //High
+        line.set_xy1(high_line, hx, hy)
+        line.set_xy2(high_line, ext, hy)
+
+        label.set_xy(high_lbl, ext, hy)
+
+        //Low
+        line.set_xy1(low_line, lx, ly)
+        line.set_xy2(low_line, ext, ly)
+
+        label.set_xy(low_lbl, ext, ly)
+
+//-----------------------------------------------------------------------------}
+//Previous day/week high/lows
+//-----------------------------------------------------------------------------{
+//Daily high/low
+[pdh, pdl] = request.security(syminfo.tickerid, 'D', hl()
+  , lookahead = barmerge.lookahead_on)
+
+//Weekly high/low
+[pwh, pwl] = request.security(syminfo.tickerid, 'W', hl()
+  , lookahead = barmerge.lookahead_on)
+
+//Monthly high/low
+[pmh, pml] = request.security(syminfo.tickerid, 'M', hl()
+  , lookahead = barmerge.lookahead_on)
+
+//Display Daily
+if show_pdhl
+    phl(pdh, pdl, 'D', pdhl_css)
+
+//Display Weekly
+if show_pwhl
+    phl(pwh, pwl, 'W', pwhl_css)
+    
+//Display Monthly
+if show_pmhl
+    phl(pmh, pml, 'M', pmhl_css)
+

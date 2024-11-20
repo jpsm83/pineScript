@@ -1,0 +1,19 @@
+//@version=5
+indicator(title='Humble LinReg Candles', shorttitle='LinReg Candles', format=format.price, precision=4, overlay=true)
+
+signal_length = input.int(title='Signal Smoothing', minval=1, maxval=200, defval=11)
+sma_signal = input(title='Simple MA (Signal Line)', defval=true)
+
+lin_reg = input(title='Lin Reg', defval=true)
+linreg_length = input.int(title='Linear Regression Length', minval=1, maxval=200, defval=11)
+
+bopen = lin_reg ? ta.linreg(open, linreg_length, 0) : open
+bhigh = lin_reg ? ta.linreg(high, linreg_length, 0) : high
+blow = lin_reg ? ta.linreg(low, linreg_length, 0) : low
+bclose = lin_reg ? ta.linreg(close, linreg_length, 0) : close
+
+r = bopen < bclose
+
+signal = sma_signal ? ta.sma(bclose, signal_length) : ta.ema(bclose, signal_length)
+
+plot(signal, color=color.new(color.white, 0))

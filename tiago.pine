@@ -1,0 +1,172 @@
+//@version=5
+indicator("Tiago", overlay=true)
+
+// Input variables to show/hide and set colors for each plot
+show_hma21 = input(true, "Show Hull MA 21")
+hma21_color = input(color.white, "Hull MA 21 color", group="Hull MA 21")
+
+show_sma9 = input(true, "Show SMA 9")
+sma9_color = input(color.blue, "SMA 9 color", group="SMA 9")
+
+show_sma21 = input(true, "Show SMA 21")
+sma21_color = input(color.red, "SMA 21 color", group="SMA 21")
+
+show_sma50 = input(true, "Show SMA 50")
+sma50_color = input(color.green, "SMA 50 color", group="SMA 50")
+
+show_sma100 = input(true, "Show SMA 100")
+sma100_color = input(color.green, "SMA 100 color", group="SMA 100")
+
+show_sma200 = input(true, "Show SMA 200")
+sma200_color = input(color.orange, "SMA 200 color", group="SMA 200")
+
+// Calculate moving averages
+hma21 = ta.hma(close, 21)
+sma9 = ta.sma(close, 9)
+sma21 = ta.sma(close, 21)
+sma50 = ta.sma(close, 50)
+sma100 = ta.sma(close, 100)
+sma200 = ta.sma(close, 200)
+
+plot(show_hma21 ? hma21 : na, color = color.new(hma21_color, transp = 10), linewidth = 2)
+plot(show_sma9 ? sma9 : na, title = "SMA 9", color = color.new(sma9_color, transp = 10), linewidth = 1)
+plot(show_sma21 ? sma21 : na, title = "SMA 21", color = color.new(sma21_color, transp = 10),  linewidth = 1)
+plot(show_sma50 ? sma50 : na, title = "SMA 50", color = color.new(sma50_color, transp = 10),  linewidth = 1)
+plot(show_sma100 ? sma100 : na, title = "SMA 100", color = color.new(sma100_color, transp = 10),  linewidth = 1)
+plot(show_sma200 ? sma200 : na, title = "SMA 200", color = color.new(sma200_color, transp = 10),  linewidth = 2)
+
+ema9 = ta.ema(close, 9)
+ema21 = ta.ema(close, 21)
+ema50 = ta.ema(close, 50)
+ema100 = ta.ema(close, 100)
+ema200 = ta.ema(close, 200)
+
+// =================================================================================================================
+// ======== SWING HIGH LOW PLOT ====================================================================================
+// =================================================================================================================
+
+barsback = input(7, title='Bars back to check for a swing')
+
+swing_detection(index) =>
+    swing_high = false
+    swing_low = false
+    start = index * 2 - 1  // -1 so we have an even number of
+    swing_point_high = high[index]
+    swing_point_low = low[index]
+    swing_high_price = 0.0
+
+    //Swing Highs
+    for i = 0 to start by 1
+        swing_high := true
+        if i < index
+            if high[i] > swing_point_high
+                swing_high := false
+                break
+        // Have to do checks before pivot and after seperately because we can get
+        // two highs of the same value in a row. Notice the > and >= difference
+        if i > index
+            if high[i] >= swing_point_high
+                swing_high := false
+                break
+    //Swing lows
+    for i = 0 to start by 1
+        swing_low := true
+        if i < index
+            if low[i] < swing_point_low
+                swing_low := false
+                break
+        // Have to do checks before pivot and after seperately because we can get
+        // two lows of the same value in a row. Notice the > and >= difference
+        if i > index
+            if low[i] <= swing_point_low
+                swing_low := false
+                break
+
+    [swing_high, swing_low]
+
+// Check for a swing
+[swing_high, swing_low] = swing_detection(barsback)
+
+plotshape(swing_high, style=shape.triangledown, size=size.tiny, location=location.abovebar, color=color.new(color.gray, 90), text='SH', textcolor=color.new(color.gray, 90), offset=-barsback)
+plotshape(swing_low, style=shape.triangleup, size=size.tiny, location=location.belowbar, color=color.new(color.gray, 90), text='SL', textcolor=color.new(color.gray, 90),offset=-barsback)
+
+// setting the time frames
+currentTimeFrame = timeframe.period
+higherTimeFrame = switch currentTimeFrame
+    "5" =>"30"
+    "30" => "180"
+    "60" => "360"
+    "240" => "1D"
+    "1D" => "4D"
+
+// get indicators values
+[macdLine, signalLine, histLine] = request.security(syminfo.tickerid, timeframe.period, ta.macd(close, 12, 26, 9), lookahead = barmerge.lookahead_on) // Does not repaint
+
+// get higher emas
+ema50FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint 
+
+// Inputs
+htm50Band = input.float(defval = 2 , title = "Htf 50Ema Band Sensitivity", options = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4])
+
+// offset distance from htm ema50
+higherOffsetEma50Htf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(high, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) + htm50Band* (request.security(syminfo.tickerid, higherTimeFrame, ta.ema(high, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) - ema50FromHigherTf)
+lowerOffsetEma50Htf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(low, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) - htm50Band* (ema50FromHigherTf - request.security(syminfo.tickerid, higherTimeFrame, ta.ema(low, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on))
+
+// ==================================================================================================================================================================================================
+// OPPORTUNITIES ===================================================================================================================================================
+// ==================================================================================================================================================================================================
+
+// emas direction
+opBullish9_21Emas = ema9 > ema9[1] and ema21 > ema21[1] and ema50 > ema50[1] and ema9 > ema21
+opBearish9_21Emas = ema9 < ema9[1] and ema21 < ema21[1] and ema50 < ema50[1] and ema9 < ema21
+
+// price open close relate to band ema50
+opBullishPriceBand = close > lowerOffsetEma50Htf and close < higherOffsetEma50Htf
+opBearishPriceBand = close < higherOffsetEma50Htf and close > lowerOffsetEma50Htf
+
+// macd divergence
+opBullishMacd = histLine > histLine[1] and signalLine < 0 and signalLine < macdLine
+opBearishMacd = histLine < histLine[1] and signalLine > 0 and signalLine > macdLine
+
+opBullishSetup = opBullish9_21Emas and opBullishPriceBand and opBullishMacd and barstate.isconfirmed
+opBearishSetup = opBearish9_21Emas and opBearishPriceBand and opBearishMacd and barstate.isconfirmed
+
+// draw data to chart
+oportunities = input(true, "Show Oportunities")
+oportunities_color = input(color.red, "Show Oportunities", group="Oportunities")
+plotshape(oportunities ? opBullishSetup : na, style=shape.arrowup, color=color.new(oportunities_color, transp = 10), location=location.belowbar, size = size.huge)
+plotshape(oportunities ? opBearishSetup : na, style=shape.arrowdown, color=color.new(oportunities_color, transp = 10), location=location.abovebar, size = size.huge)
+
+//volume
+volumeUp = volume > volume[1]
+
+// ==================================================================================================================================================================================================
+// Confirmation ===================================================================================================================================================
+// ==================================================================================================================================================================================================
+
+// emas direction
+bullish9_21Emas = ema9 > ema9[1] and ema21 > ema21[1] and ema50 > ema50[1] and ema9 > ema21
+bearish9_21Emas = ema9 < ema9[1] and ema21 < ema21[1] and ema50 < ema50[1] and ema9 < ema21
+
+// price open close relate to band ema50
+bullishPriceBand = close > lowerOffsetEma50Htf and close < higherOffsetEma50Htf
+bearishPriceBand = close < higherOffsetEma50Htf and close > lowerOffsetEma50Htf
+
+// macd divergence
+bullishMacd = histLine > histLine[1] and signalLine < 0 and signalLine < macdLine
+bearishMacd = histLine < histLine[1] and signalLine > 0 and signalLine > macdLine
+
+// candle
+bodyCandle = math.abs(close - open) > math.abs(close[1] - open[1])
+
+bullishCandle = close > open
+bearishCandle = close < open
+
+bullishSetup = bullish9_21Emas and bullishPriceBand and bullishMacd and barstate.isconfirmed and bodyCandle and bullishCandle and volumeUp
+bearishSetup = bearish9_21Emas and bearishPriceBand and bearishMacd and barstate.isconfirmed and bodyCandle and bearishCandle and volumeUp
+
+// draw data to chart
+scalping = input(true, "Show Scalping")
+scalping_color = input(color.yellow, "Show Scalping", group="Scalping")
+plotshape(scalping ? bullishSetup : na, title="Scalping", style=shape.arrowup, color = color.new(scalping_color, transp = 10), location=location.belowbar, size = size.huge)
+plotshape(scalping ? bearishSetup : na, title="Scalping", style=shape.arrowdown, color = color.new(scalping_color, transp = 10), location=location.abovebar, size = size.huge)

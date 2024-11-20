@@ -1,0 +1,91 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © jpsm83
+
+//@version=5
+indicator(shorttitle="BB_Macd", title="BB_Macd", overlay=true, timeframe="", timeframe_gaps=true)
+
+// =================================================================================================================
+// ======== BOLINGER BANDS =========================================================================================
+// =================================================================================================================
+
+length = input.int(60, minval=1)
+src = input(close, title="Source")
+mult = input.float(defval = 2.0, minval=0.25, maxval=20,step = 0.25, title="StdDev")
+offset = input.int(0, "Offset", minval = -500, maxval = 500)
+basis = ta.ema(src, length)
+dev = mult * ta.stdev(src, length)
+upper = basis + dev
+lower = basis - dev
+
+plot(basis, "Basis", color=#FF6D00, offset = offset)
+p1 = plot(upper, "Upper", color=color.new(color.gray, 50), offset = offset)
+p2 = plot(lower, "Lower", color=color.new(color.gray, 50), offset = offset)
+fill(p1, p2, title = "Background", color=color.new(color.gray, 95))
+
+// =================================================================================================================
+// ======== MACD ===================================================================================================
+// =================================================================================================================
+
+macd_Line = input.int(defval = 12, minval = 1, maxval = 221, step = 1, title="MACD Line") // green
+signal_Line = input.int(defval = 26, minval = 1, maxval = 221, step = 1, title="Signal Line") // yellow
+hist_Line = input.int(defval = 9, minval = 1, maxval = 221, step = 1, title="Histogran Line")
+
+[macdLine, signalLine, histLine] = ta.macd(src, macd_Line, signal_Line, hist_Line)
+
+// =================================================================================================================
+// ======== STRATEGY ===============================================================================================
+// =================================================================================================================
+
+bb_upper_touched = high > upper and low < upper or (open > upper)
+bb_lower_touched = high > lower and low < lower or (open < lower)
+
+macd_bull_losing_momentun = histLine > 0 and histLine < histLine[1] and macdLine > signalLine and ((macdLine - signalLine) < (macdLine[1] - signalLine[1]))
+macd_bear_losing_momentun = histLine < 0 and histLine > histLine[1] and macdLine < signalLine and ((math.abs(macdLine) - math.abs(signalLine)) < (math.abs(macdLine[1]) - math.abs(signalLine[1])))
+
+// =================================================================================================================
+// ======== ENGULFING CANDLES ======================================================================================
+// =================================================================================================================
+
+bullishEngulfing = false
+bearishEngulfing = false
+
+if close > open and close > high[1] and macdLine < 0
+    if close[1] > open[1]
+        if ((close - open) / 3) > (close[1] - open[1])
+            bullishEngulfing := true
+    else
+        if ((close - open) / 3) > (open[1] - close[1])
+            bullishEngulfing := true
+else if close < open and close < low[1] and macdLine > 0
+    if close[1] < open[1]
+        if ((open - close) / 3) > (open[1] - close[1])
+            bearishEngulfing := true
+    else
+        if ((open - close) / 3) > (close[1] - open[1])
+            bearishEngulfing := true
+
+// =================================================================================================================
+// ======== BUY SELL ARROWS ========================================================================================
+// =================================================================================================================
+
+showLabelSignals = input(true, "Show Labels Signals")
+showEngulfingArrows = input(true, "Show Engulfing Arrows")
+
+buyOportunity = macd_bear_losing_momentun and bb_lower_touched and barstate.isconfirmed
+sellOportunity = macd_bull_losing_momentun and bb_upper_touched and barstate.isconfirmed
+
+plotshape(buyOportunity and showLabelSignals, style=shape.labelup, color=color.green, location=location.belowbar, size = size.small)
+plotshape(sellOportunity and showLabelSignals, style=shape.labeldown, color=color.red, location=location.abovebar, size = size.small)
+
+plotshape(bullishEngulfing and showEngulfingArrows, style=shape.arrowup, color=color.orange, location=location.belowbar, size = size.huge)
+plotshape(bearishEngulfing and showEngulfingArrows, style=shape.arrowdown, color=color.yellow, location=location.abovebar, size = size.huge)
+
+// =================================================================================================================
+// ======== BUY SELL ALERTS ========================================================================================
+// =================================================================================================================
+
+alertcondition(buyOportunity, "Check for LONG setups", "LONG setup starting at {{ticker}}")
+alertcondition(sellOportunity, "Check for SHORT setups", "SHORT setup starting at {{ticker}}")
+
+alertcondition(bullishEngulfing, "Bullish candle signal", "Bullish engulfing opportunities at {{ticker}}")
+alertcondition(bearishEngulfing, "Bearish candle signal", "Bearish engulfing opportunities at {{ticker}}")

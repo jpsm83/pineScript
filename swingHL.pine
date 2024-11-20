@@ -1,0 +1,122 @@
+//@version=5
+indicator("Emas & BB - Emas crossing / BB bias", overlay=true)
+
+// =================================================================================================================
+// ============= EMAs ==============================================================================================
+// =================================================================================================================
+
+showEMA1 = input(false, "Show ema 1", inline = 'EMA1', group = "Emas _____________________________________________")
+ma1Value = input.int(defval = 10, title = "", minval = 1, maxval = 4000, step = 1, inline = 'EMA1', group = "Emas _____________________________________________")
+ma1Color = input(color.new(color.green, 80), title = "10", inline = 'EMA1', group = "Emas _____________________________________________")
+
+showEMA2 = input(false, "Show ema 2", inline = 'EMA2', group = "Emas _____________________________________________")
+ma2Value = input.int(defval = 20, title = "", minval = 1, maxval = 4000, step = 1, inline = 'EMA2', group = "Emas _____________________________________________")
+ma2Color = input(color.new(color.yellow, 80), title = "20", inline = 'EMA2', group = "Emas _____________________________________________")
+
+shoeEMA3 = input(false, "Show ema 3", inline = 'EMA3', group = "Emas _____________________________________________")
+ma3Value = input.int(defval = 30, title = "", minval = 1, maxval = 4000, step = 1, inline = 'EMA3', group = "Emas _____________________________________________")
+ma3Color = input(color.new(color.white, 80), title = "30", inline = 'EMA3', group = "Emas _____________________________________________")
+
+showEMA4 = input(false, "Show ema 4", inline = 'EMA4', group = "Emas _____________________________________________")
+ma4Value = input.int(defval = 50, title = "", minval = 1, maxval = 4000, step = 1, inline = 'EMA4', group = "Emas _____________________________________________")
+ma4Color = input(color.new(color.red, 80), title = "50", inline = 'EMA4', group = "Emas _____________________________________________")
+
+showEMA5 = input(false, "Show ema 5", inline = 'EMA5', group = "Emas _____________________________________________")
+ma5Value = input.int(defval = 100, title = "", minval = 1, maxval = 4000, step = 1, inline = 'EMA5', group = "Emas _____________________________________________")
+ma5Color = input(color.new(color.blue, 80), title = "100", inline = 'EMA5', group = "Emas _____________________________________________")
+
+showEMA6 = input(false, "Show ema 6", inline = 'EMA6', group = "Emas _____________________________________________")
+ma6Value = input.int(defval = 200, title = "", minval = 1, maxval = 4000, step = 1, inline = 'EMA6', group = "Emas _____________________________________________")
+ma6Color = input(color.new(color.orange, 80), title = "200", inline = 'EMA6', group = "Emas _____________________________________________")
+
+ema1 =ta.ema(close, ma1Value)
+plot(showEMA1 ? ema1 : na, title = "EMA1", color = ma1Color)
+ema2 = ta.ema(close, ma2Value)
+plot(showEMA2 ? ema2 : na, title = "EMA2", color = ma2Color)
+ema3 = ta.ema(close, ma3Value)
+plot(shoeEMA3 ? ema3 : na, title = "EMA3", color = ma3Color)
+ema4 = ta.ema(close, ma4Value)
+plot(showEMA4 ? ema4 : na, title = "EMA4", color = ma4Color)
+ema5 = ta.ema(close, ma5Value)
+plot(showEMA5 ? ema5 : na, title = "EMA5", color = ma5Color)
+ema6 = ta.ema(close, ma6Value)
+plot(showEMA6 ? ema6 : na, title = "EMA6", color = ma6Color)
+
+// Input for EMA Crossing (Dropdown)
+emaCrossingIndex = input.int(1, title="Ema nº to cross", options=[1, 2, 3, 4, 5, 6], tooltip = "This ema MUST be smaller than the ema below. Crossing between those 2 emas will be displayed!", group = "Define emas to be cross___________________________")
+emaCrossing = switch emaCrossingIndex
+    1 => ema1
+    2 => ema2
+    3 => ema3
+    4 => ema4
+    5 => ema5
+    6 => ema6
+
+// Input for EMA Crossed (Dropdown)
+emaCrossedIndex = input.int(6, title="Ema nº to be crossed", options=[1, 2, 3, 4, 5, 6], tooltip = "This ema MUST be bigger than the ema above. Crossing between those 2 emas will be displayed!", group = "Define emas to be cross___________________________")
+emaCrossed = switch emaCrossedIndex
+    1 => ema1
+    2 => ema2
+    3 => ema3
+    4 => ema4
+    5 => ema5
+    6 => ema6
+
+crossunder = ta.crossunder(emaCrossed, emaCrossing) and barstate.isconfirmed
+crossover = ta.crossover(emaCrossed, emaCrossing) and barstate.isconfirmed
+
+// =================================================================================================================
+// ============= TRADING ===========================================================================================
+// =================================================================================================================
+
+// Plotting
+plotshape(crossunder, style=shape.labelup, color=color.new(color.green, 70), location=location.belowbar, size=size.small)
+plotshape(crossover, style=shape.labeldown, color=color.new(color.red, 70), location=location.abovebar, size=size.small)
+
+// =================================================================================================================
+// ============= ALERTS ============================================================================================
+// =================================================================================================================
+
+// Add these lines at the end of your script
+alertcondition(crossunder or crossover, title="Crossing emas", message="Emas corssed!")
+
+// =================================================================================================================
+// ======== BOLLINGER BANDS ========================================================================================
+// =================================================================================================================
+
+length = input.int(20, minval=1, group = "Bollinger Bands __________________________________")
+maType = input.string("SMA", "Basis MA Type", options = ["SMA", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group = "Bollinger Bands __________________________________")
+src = input(close, title="Source", group = "Bollinger Bands __________________________________")
+mult = input.float(2.0, minval=0.001, maxval=50, title="StdDev", group = "Bollinger Bands __________________________________")
+
+ma(source, length, _type) =>
+    switch _type
+        "SMA" => ta.sma(source, length)
+        "EMA" => ta.ema(source, length)
+        "SMMA (RMA)" => ta.rma(source, length)
+        "WMA" => ta.wma(source, length)
+        "VWMA" => ta.vwma(source, length)
+
+basis = ma(src, length, maType)
+dev = mult * ta.stdev(src, length)
+upper = basis + dev
+lower = basis - dev
+offset = input.int(0, "Offset", minval = -500, maxval = 500, display = display.data_window, group = "Bollinger Bands __________________________________")
+plot(basis, "Basis", color=#2962FF, offset = offset)
+p1 = plot(upper, "Upper", color=#F23645, offset = offset)
+p2 = plot(lower, "Lower", color=#089981, offset = offset)
+fill(p1, p2, title = "Background", color=color.rgb(33, 150, 243, 95))
+
+getMomentun = (upper - lower) > (upper[1] - lower[1]) 
+loosingMomentum = (upper - lower) < (upper[1] - lower[1])
+
+// =================================================================================================================
+// ======== BIAS BOX ===============================================================================================
+// =================================================================================================================
+
+showBias = input(true, "Price Bias", tooltip = "BB spreading up equals momentun growing, view box collor for BB status!", group = "Bollinger Bands __________________________________")
+
+boxColor = getMomentun ? color.new(color.green, 50) : loosingMomentum ? color.new(color.red, 50) : color.new(color.gray, 50)
+myBox = showBias ? (box.new(left = bar_index + 15, top = ta.highest(high, 20), right = bar_index + 20, bottom = ta.lowest(low, 20), border_color = na, bgcolor = boxColor)) : na
+
+box.delete(myBox[1])

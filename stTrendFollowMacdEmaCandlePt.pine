@@ -1,0 +1,107 @@
+//@version=5
+strategy("Macd divergence following trend direction, ema 9/21/200 and candles patterns", overlay=true, currency = currency.NONE, initial_capital = 10000, default_qty_type = strategy.percent_of_equity, default_qty_value = 100)
+
+// setting the time frames
+currentTimeFrame = timeframe.period
+higherTimeFrame = switch currentTimeFrame
+    "30" => "120"
+    "120" => "480"
+    "240" => "960"
+    "1D" => "4D"
+
+// get indicators values
+ema200 = ta.ema(close, 200)
+plot(ema200, title = "Ema200", color = color.orange, linewidth = 2)
+ema50 = ta.ema(close, 50)
+plot(ema50, title = "Ema21", color = color.red, linewidth = 1)
+ema21 = ta.ema(close, 21)
+plot(ema21, title = "Ema21", color = color.yellow, linewidth = 1)
+ema9 = ta.ema(close, 9)
+plot(ema9, title = "Ema9", color = color.green, linewidth = 1)
+ema200FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 200))
+ema21FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 21))
+ema9FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 9))
+[macdLine, signalLine, histLine] = ta.macd(close, 12, 26, 9)
+
+// bullish candlesticks pattern
+morningStart = (close[2] < open[2] and math.max(open[1], close[1]) < close[2] and open > math.max(open[1], close[1]) and close > open )
+hammer = (((high - low)>3*(open -close)) and  ((close - low)/(.001 + high - low) > 0.6) and ((open - low)/(.001 + high - low) > 0.6))
+bullishEngulfing = (open[1] > close[1] and close > open and close >=  open[1] and close[1] >=  open and close - open > open[1] - close[1] )
+bullishHarami = (open[1] > close[1] and close > open and close <=  open[1] and close[1] <=  open and close - open < open[1] - close[1] )
+piercingLine = (close[1] < open[1] and  open < low[1] and close > close[1] + ((open[1] - close[1])/2) and close < open[1])
+bullishBelt = (low  ==  open and  open < ta.lowest(10)[1] and open < close and close > ((high[1] - low[1]) / 2) + low[1])
+bullishKicker = (open[1]>close[1] and open>= open[1] and close>open)
+invertedHammer = (((high - low)>3*(open -close)) and  ((high - close)/(.001 + high - low) > 0.6) and ((high - open)/(.001 + high - low) > 0.6))
+bullishInsideBar = open[1] > close[1] and (0.30 * math.abs(open[1] - close[1])) > open[1] - close
+bullishCandle = morningStart or hammer or bullishEngulfing or bullishHarami or piercingLine or bullishBelt or bullishKicker or invertedHammer or bullishInsideBar
+
+// bearish candlesticks pattern
+bearishHarami = (close[1] > open[1] and open > close and open <=  close[1] and open[1] <=  close and open - close < close[1] - open[1] )
+eveningStar = (close[2] > open[2] and math.min(open[1], close[1]) > close[2] and open < math.min(open[1], close[1]) and close < open )
+bearishEngulfing = (close[1] > open[1] and open > close and open >=  close[1] and open[1] >=  close and open - close > close[1] - open[1] )
+shootingStar = (open[1] < close[1] and open > close[1] and high - math.max(open, close) >=  math.abs(open - close) * 3 and math.min(close, open) - low <=  math.abs(open - close))
+bearishKicker = (open[1]<close[1] and open<= open[1] and close<= open)
+hangingMan = (((high-low>4*(open-close))and((close-low)/(.001+high-low)>= 0.75)and((open-low)/(.001+high-low)>= 0.75)) and high[1] < open and high[2] < open)
+darkCloudCover = ((close[1]>open[1])and(((close[1]+open[1])/2)>close)and(open>close)and(open>close[1])and(close>open[1])and((open-close)/(.001+(high-low))>0.6))
+bearishInsideBar = open[1] < close[1] and (0.30 * math.abs(close[1] - open[1])) > close - open[1]
+bearishCandle = bearishHarami or eveningStar or bearishEngulfing or shootingStar or bearishKicker or hangingMan or darkCloudCover or bearishInsideBar
+
+// offset distance from ema21
+bullishOffsetEma21 = ta.ema(high, 21) + (ta.ema(high, 21) -  ta.ema(close, 21))
+berishOffsetEma21 = ta.ema(low, 21) - (ta.ema(close, 21) -  ta.ema(low, 21))
+
+// offset distance from ema200
+bullishOffsetEma200 = ta.ema(high, 200) + 4 * (ta.ema(high, 200) -  ta.ema(close, 200))
+berishOffsetEma200 = ta.ema(low, 200) - 4 * (ta.ema(close, 200) -  ta.ema(low, 200))
+
+// price position open and close
+bullishPosition = close >= ema200 and close >= bullishOffsetEma21 and open <= bullishOffsetEma21
+bearishPosition = close <= ema200 and close <= berishOffsetEma21 and open >= berishOffsetEma21
+
+// emas direction
+bullishEma200FromHigherTf = ema200FromHigherTf[1] >= ema200FromHigherTf[2] // 1 day average on 4H min chart
+bullishEma9FromHigherTf = ema9FromHigherTf[1] >= ema9FromHigherTf[2] // 1 day average on 4H min chart
+bullishEma200 = ema200 > ema200[1] // 4 hour average on 30 min chart
+bullishEma9 = ema9 > ema9[1] // 4 hour average on 30 min chart
+allBullishDirection = bullishEma200FromHigherTf and bullishEma200 and bullishEma9 and bullishEma9FromHigherTf
+
+bearishEma200FromHigherTf = ema200FromHigherTf[1] <= ema200FromHigherTf[2] // 1 day average on 4H min chart
+bearishEma9FromHigherTf = ema9FromHigherTf[1] <= ema9FromHigherTf[2] // 1 day average on 4H min chart
+bearishEma200 = ema200 < ema200[1] // 4 hours average on 30 min chart
+bearishEma9 = ema9 < ema9[1] // 4 hours average on 30 min chart
+allBearishDirection = bearishEma200FromHigherTf and bearishEma200 and bearishEma9 and bearishEma9FromHigherTf
+
+// macd divergence
+bullishMacd = histLine >= histLine[1]
+bearishMacd = histLine <= histLine[1]
+
+// distance between 9 and 21 is increasing
+bullishIncreasingDistance = (ema9 - ema21) > (ema9[1] - ema21[1]) and ((ema9[1] - ema21[1]) > (ema9[2] - ema21[2]) or open < bullishOffsetEma200)
+bearishIncreasingDistance = (ema21 - ema9) > (ema21[1] - ema9[1]) and ((ema21[1] - ema9[1]) > (ema21[2] - ema9[2]) or open > berishOffsetEma200)
+bullishIncreasingDistance4H = (ema21FromHigherTf[1] - ema9FromHigherTf[1]) <= (ema21FromHigherTf[2] - ema9FromHigherTf[2]) or (ema9FromHigherTf[1] > ema21FromHigherTf[1])
+bearishIncreasingDistance4H = (ema9FromHigherTf[1] - ema21FromHigherTf[1]) <= (ema9FromHigherTf[2] - ema21FromHigherTf[2]) or (ema21FromHigherTf[1] > ema9FromHigherTf[1])
+
+// trading setups
+bullishSetup = bullishCandle and bullishPosition and allBullishDirection and bullishMacd and bullishIncreasingDistance and bullishIncreasingDistance4H
+bearishSetup = bearishCandle and bearishPosition and allBearishDirection and bearishMacd and bearishIncreasingDistance and bearishIncreasingDistance4H
+
+// stop loss and take profit
+stopLossLongPosition = berishOffsetEma200
+stopLossShortPosition = bullishOffsetEma200
+
+takeProfitLongPosition = 1.5 * (close - berishOffsetEma200) + close
+takeProfitShortPosition = close - 1.5 * (bullishOffsetEma200 - close)
+
+
+if (bullishSetup and volume >= close * 1.5)
+    strategy.entry("Long", strategy.long)
+if (bearishSetup and volume >= close * 1.5)
+    strategy.entry("Short", strategy.long)
+if (close >= takeProfitLongPosition or close <= stopLossLongPosition)
+    strategy.close("Long")
+if (close <= takeProfitShortPosition or close >= stopLossShortPosition)
+    strategy.close("Short")
+
+// draw data to chart
+plotshape(bullishSetup, style=shape.arrowup, color=color.green, location=location.belowbar, size = size.huge, text = "BUY", textcolor = color.green)
+plotshape(bearishSetup, style=shape.arrowdown, color=color.red, location=location.abovebar, size = size.huge, text = "SELL", textcolor = color.red)

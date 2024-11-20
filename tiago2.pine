@@ -1,0 +1,92 @@
+// jpsm83 - joao paulo - may 2023
+// 5 options of MA, Vwap & alertas Tiago
+// best in a dark mode chart (dark background)
+
+//@version=5
+indicator("5 opcoes de MA, Vwap & alertas Tiago", overlay=true)
+
+currentTimeFrame = timeframe.period
+higherTimeFrame = switch currentTimeFrame
+    "1" => "5"
+    "5" =>"30"
+    "30" => "180"
+    "60" => "360"
+    "240" => "1D"
+    "1D" => "4D"
+
+showVwap = input(true, "Mostrar Vwap")
+vwapColor = input(color.new(color.white, 90), "Vwap color")
+
+showMA1 = input(true, "Mostrar MA1")
+ma1Value = input.int(defval = 9, title = "MA1 Primaria", minval = 1, maxval = 221, step = 1)
+ma1Color = input(color.new(color.green, 90), "MA1 color")
+
+showMA2 = input(true, "Mostrar MA2")
+ma2Value = input.int(defval = 21, title = "MA2 Secundaria", minval = 1, maxval = 300, step = 1)
+ma2Color = input(color.new(color.yellow, 90), "MA2 color")
+
+shoeMA3 = input(true, "Mostrar MA3")
+ma3Value = input.int(defval = 32, title = "MA3", minval = 1, maxval = 300, step = 1)
+ma3Color = input(color.new(color.white, 90), "MA3 color")
+
+showMA4 = input(true, "Mostrar MA4")
+ma4Value = input.int(defval = 50, title = "MA4", minval = 1, maxval = 300, step = 1)
+ma4Color = input(color.new(color.red, 90), "MA4 color")
+
+showMA5 = input(true, "Mostrar MA5")
+ma5Value = input.int(defval = 100, title = "MA5", minval = 1, maxval = 300, step = 1)
+ma5Color = input(color.new(color.blue, 90), "MA5 color")
+
+showMA6 = input(true, "Mostrar HMA")
+ma6Value = input.int(defval = 200, title = "HMA", minval = 1, maxval = 300, step = 1)
+ma6Color = input(color.new(color.orange, 90), "HMA color")
+
+// get higher mas
+ma50FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint 
+
+vwap = ta.vwap(source = close)
+plot(showVwap ? vwap : na, title = "Vwap", color = vwapColor, linewidth = 1)
+ma1 =ta.ema(close, ma1Value)
+plot(showMA1 ? ma1 : na, title = "MA1", color = ma1Color, linewidth = 1)
+ma2 = ta.ema(close, ma2Value)
+plot(showMA2 ? ma2 : na, title = "MA2", color = ma2Color,  linewidth = 1)
+ma3 = ta.ema(close, ma3Value)
+plot(shoeMA3 ? ma3 : na, title = "MA3", color = ma3Color,  linewidth = 1)
+ma4 = ta.ema(close, ma4Value)
+plot(showMA4 ? ma4 : na, title = "MA4", color = ma4Color,  linewidth = 1)
+ma5 = ta.ema(close, ma5Value)
+plot(showMA5 ? ma5 : na, title = "MA5", color = ma5Color,  linewidth = 1)
+ma6 = ta.wma(close, ma6Value)
+plot(showMA6 ? ma6 : na, title = "HMA", color = ma6Color,  linewidth = 1)
+
+// =================================================================================================================
+// ======== BUY SELL COLLUMNS ======================================================================================
+// =================================================================================================================
+
+showCoresTendenciaAlta = input(true, "Coluna tendencia ALTA")
+showCoresTendenciaBaixa = input(true, "Coluna tendencia BAIXA")
+showCoresTPrecoEntre50x200 = input(true, "Coluna preco entre 50x200")
+
+tendenciaAlta = close > ta.ema(close, 50) and close > ta.ema(close, 200) and barstate.isconfirmed
+tendenciaBaixa = close < ta.ema(close, 50) and close < ta.ema(close, 200) and barstate.isconfirmed
+precoEntre50x200 = ((close > ta.ema(close, 50) and close < ta.ema(close, 200)) or (close < ta.ema(close, 50) and close > ta.ema(close, 200))) and barstate.isconfirmed
+
+bgcolor(showCoresTendenciaAlta and tendenciaAlta ? color.new(color.green, 95) : na)
+bgcolor(showCoresTendenciaBaixa and tendenciaBaixa ? color.new(color.red, 95) : na)
+bgcolor(showCoresTPrecoEntre50x200 and precoEntre50x200 ? color.new(color.yellow, 95) : na)
+
+// =================================================================================================================
+// ======== ALERTAS TIAGO ==========================================================================================
+// =================================================================================================================
+
+showFlechasTendenciaAlta = input(true, "Flechas de compra")
+showFlechasTendenciaBaixa = input(true, "Flechas de venda")
+
+tendenciaAltaSetup = close > ma1 and ma1 > ma2 and close < ta.ema(source = close, length = 200) and close > open and barstate.isconfirmed
+tendenciaBaixaSetup = close < ma1 and ma1 < ma2 and close > ta.ema(source = close, length = 200) and close < open and barstate.isconfirmed
+
+// draw data to chart
+plotshape(tendenciaAltaSetup and showFlechasTendenciaAlta, style=shape.arrowup, color=color.yellow, location=location.belowbar, size = size.huge)
+plotshape(tendenciaBaixaSetup and showFlechasTendenciaBaixa, style=shape.arrowdown, color=color.yellow, location=location.abovebar, size = size.huge)
+
+alertcondition(tendenciaAltaSetup or tendenciaBaixaSetup, title = "200 x 200", message = "Oportunidade no {{ticker}}")

@@ -1,0 +1,38 @@
+//@version=5
+indicator("Color background", overlay=true)
+
+// setting the time frames
+currentTimeFrame = timeframe.period
+higherTimeFrame = switch currentTimeFrame
+    "5" =>"30"
+    "30" => "180"
+    "60" => "360"
+    "240" => "1D"
+    "1D" => "4D"
+
+buySellCollumns = input(true, "Buy sell collumns")
+
+// get current emas
+ema9 = ta.ema(source = close, length = 9)
+ema21 = ta.ema(source = close, length = 21)
+ema50 = ta.ema(source = close, length = 50)
+ema200 = ta.ema(source = close, length = 200)
+
+// get higher emas
+ema200FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 200), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on)// Does not repaint 
+ema50FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint 
+ema21FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 21), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint 
+ema9FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 9), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint 
+
+bullishMomentunHtf = ema9FromHigherTf - ema21FromHigherTf > ema9FromHigherTf[2] - ema21FromHigherTf[2] and ema21FromHigherTf - ema50FromHigherTf > ema21FromHigherTf[2] - ema50FromHigherTf[2] and ema50FromHigherTf > ema50FromHigherTf[2]
+bearishMomentunHtf = ema9FromHigherTf - ema21FromHigherTf < ema9FromHigherTf[2] - ema21FromHigherTf[2] and ema21FromHigherTf - ema50FromHigherTf < ema21FromHigherTf[2] - ema50FromHigherTf[2] and ema50FromHigherTf < ema50FromHigherTf[2]
+
+bullishDirectionChanging = ema200 < close and ema50FromHigherTf < close
+bearishDirectionChanging = ema200 > close and ema50FromHigherTf > close
+
+bullishTrend = bullishMomentunHtf and bullishDirectionChanging and barstate.isconfirmed
+bearishTrend = bearishMomentunHtf and bearishDirectionChanging and barstate.isconfirmed
+
+trendColor = bullishTrend ? color.new(color.green, 95) : bearishTrend ? color.new(color.red, 95) : na
+
+bgcolor(buySellCollumns ? trendColor : na)

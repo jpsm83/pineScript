@@ -1,0 +1,46 @@
+//@version=5
+indicator("testing", overlay=true)
+
+// setting the time frames
+currentTimeFrame = timeframe.period
+higherTimeFrame = switch currentTimeFrame
+    "30" => "240"
+    "60" => "240"
+    "240" => "1D"
+    "1D" => "1W"
+
+// get indicators values
+ema200 = ta.ema(close, 200)
+plot(ema200, title = "Ema200", color = color.orange, linewidth = 2)
+ema21 = ta.ema(close, 21)
+plot(ema21, title = "Ema21", color = color.yellow, linewidth = 1)
+ema9 = ta.ema(close, 9)
+plot(ema9, title = "Ema9", color = color.green, linewidth = 1)
+ema21FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 21))
+ema9FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 9))
+
+// review the 5* for crypto
+// offset distance from ema200
+bullishOffsetEma200 = ta.ema(high, 200) + 5 * (ta.ema(high, 200) -  ta.ema(close, 200))
+berishOffsetEma200 = ta.ema(low, 200) - 5 * (ta.ema(close, 200) -  ta.ema(low, 200))
+
+// price position open and close
+bullishPosition = close >= ema200 and open <= bullishOffsetEma200 and close >= bullishOffsetEma200
+bearishPosition = close <= ema200 and open >= berishOffsetEma200 and close <= berishOffsetEma200 
+//plot(bullishOffsetEma200, color=color.white, linewidth=1)
+//plot(berishOffsetEma200, color=color.white, linewidth=1)
+
+// ema direction higher time frame
+bullishMomentunHigherTf = ema9FromHigherTf > ema9FromHigherTf[1] and ((ema9FromHigherTf - ema21FromHigherTf) >= (ema9FromHigherTf[1] - ema21FromHigherTf[1]))
+bearishMomentunHigherTf = ema9FromHigherTf < ema9FromHigherTf[1] and ((ema21FromHigherTf - ema9FromHigherTf) >= (ema21FromHigherTf[1] - ema9FromHigherTf[1]))
+
+// trading setups
+bullishSetup = bullishPosition and bullishMomentunHigherTf
+bearishSetup = bearishPosition and bearishMomentunHigherTf
+
+// draw data to chart
+plotshape(bullishSetup, style=shape.arrowup, color=color.green, location=location.belowbar, size = size.huge, text = "BUY", textcolor = color.green)
+plotshape(bearishSetup, style=shape.arrowdown, color=color.red, location=location.abovebar, size = size.huge, text = "SELL", textcolor = color.red)
+
+// send alert
+alertcondition(bullishSetup or bearishSetup, title = "30M - Macd divergence following trend direction, ema 9/21/200 and candles patterns", message = "*** 30M *** candle triggered a trade at {{ticker}}")

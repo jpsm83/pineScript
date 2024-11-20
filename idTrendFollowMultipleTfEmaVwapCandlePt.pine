@@ -1,0 +1,95 @@
+// price action with ema, vwap multiple time frames
+// this indicator is better for 30 minutes or 1 hour time frames
+// when price is above 50 ema in the macro then we check for trend follow in the micro
+// micro has to have momentun 9/21emas, price have to be in the direction of vwap and in a 21ema band
+// macd bars have to be following the trend too
+
+//@version=5
+indicator("Trend follow multiple TF (ema, vwap, macd, candle patterns)", overlay = true)
+
+// setting the time frames
+currentTimeFrame = timeframe.period
+higherTimeFrame = switch currentTimeFrame
+    "5" => "60"
+    "30" => "240"
+    "60" => "240"
+    "240" => "1D"
+    "1D" => "1W"
+
+// bullish candlesticks pattern
+morningStart = (close[2] < open[2] and math.max(open[1], close[1]) < close[2] and open > math.max(open[1], close[1]) and close > open )
+hammer = (((high - low)>3*(open -close)) and  ((close - low)/(.001 + high - low) > 0.6) and ((open - low)/(.001 + high - low) > 0.6))
+bullishEngulfing = (open[1] > close[1] and close > open and close >=  open[1] and close[1] >=  open and close - open > open[1] - close[1] )
+bullishHarami = (open[1] > close[1] and close > open and close <=  open[1] and close[1] <=  open and close - open < open[1] - close[1] )
+piercingLine = (close[1] < open[1] and  open < low[1] and close > close[1] + ((open[1] - close[1])/2) and close < open[1])
+bullishBelt = (low  ==  open and  open < ta.lowest(10)[1] and open < close and close > ((high[1] - low[1]) / 2) + low[1])
+bullishKicker = (open[1]>close[1] and open>= open[1] and close>open)
+invertedHammer = (((high - low)>3*(open -close)) and  ((high - close)/(.001 + high - low) > 0.6) and ((high - open)/(.001 + high - low) > 0.6))
+bullishInsideBar = open[1] > close[1] and (0.30 * math.abs(open[1] - close[1])) > open[1] - close
+bullishCandle = morningStart or hammer or bullishEngulfing or bullishHarami or piercingLine or bullishBelt or bullishKicker or invertedHammer or bullishInsideBar
+
+// bearish candlesticks pattern
+bearishHarami = (close[1] > open[1] and open > close and open <=  close[1] and open[1] <=  close and open - close < close[1] - open[1] )
+eveningStar = (close[2] > open[2] and math.min(open[1], close[1]) > close[2] and open < math.min(open[1], close[1]) and close < open )
+bearishEngulfing = (close[1] > open[1] and open > close and open >=  close[1] and open[1] >=  close and open - close > close[1] - open[1] )
+shootingStar = (open[1] < close[1] and open > close[1] and high - math.max(open, close) >=  math.abs(open - close) * 3 and math.min(close, open) - low <=  math.abs(open - close))
+bearishKicker = (open[1]<close[1] and open<= open[1] and close<= open)
+hangingMan = (((high-low>4*(open-close))and((close-low)/(.001+high-low)>= 0.75)and((open-low)/(.001+high-low)>= 0.75)) and high[1] < open and high[2] < open)
+darkCloudCover = ((close[1]>open[1])and(((close[1]+open[1])/2)>close)and(open>close)and(open>close[1])and(close>open[1])and((open-close)/(.001+(high-low))>0.6))
+bearishInsideBar = open[1] < close[1] and (0.30 * math.abs(close[1] - open[1])) > close - open[1]
+bearishCandle = bearishHarami or eveningStar or bearishEngulfing or shootingStar or bearishKicker or hangingMan or darkCloudCover or bearishInsideBar
+
+// get emas
+ema9 = ta.ema(source = close, length = 9)
+plot(series = ema9, title = "ema9", color = color.new(color = color.green, transp = 60), linewidth = 1)
+ema21 = ta.ema(source = close, length = 21)
+plot(series = ema21, title = "ema21", color = color.new(color = color.yellow, transp = 60), linewidth = 1)
+ema50 = ta.ema(source = close, length = 50)
+plot(series = ema50, title = "ema50", color = color.new(color = color.red, transp = 60), linewidth = 1)
+ema200 = ta.ema(source = close, length = 200)
+plot(series = ema200, title = "ema200", color = color.new(color = color.orange, transp = 0), linewidth = 2)
+ema50HighestTimeFrame = request.security(symbol = syminfo.tickerid, timeframe = higherTimeFrame, expression = ta.ema(source = close, length = 50) ) 
+
+// get macd
+[macdLine, signalLine, histLine] = ta.macd(close, 12, 26, 9)
+
+// offset distance from ema21
+bullishOffsetEma21 = ta.ema(high, 21) + (ta.ema(high, 21) -  ta.ema(close, 21))
+bearishOffsetEma21 = ta.ema(low, 21) - (ta.ema(close, 21) -  ta.ema(low, 21))
+
+// get vwap
+vwap = ta.vwap(source = close)
+plot(series = vwap, title = "vwap", color = color.new(color = color.white, transp = 60), linewidth = 2)
+
+// bullish price rules
+priceHigherEma50HighestTimeFrame = close >= ema50HighestTimeFrame[1]
+bullishPriceInsideEma21Band = open <= bullishOffsetEma21
+bullishPriceHigher9 = close >= ema9
+bullishPriceHigher50 = close > ema50
+bullishPriceRules = priceHigherEma50HighestTimeFrame and bullishPriceInsideEma21Band and bullishPriceHigher9 and bullishPriceHigher50
+
+// bearish price rules
+priceLowerEma50HighestTimeFrame = close <= ema50HighestTimeFrame[1]
+bearishPriceInsideEma21Band = open >= bearishOffsetEma21
+bearishPriceLower9 = close <= ema9
+bearishPriceLower50 = close < ema50
+bearishPriceRules = priceLowerEma50HighestTimeFrame and bearishPriceInsideEma21Band and bearishPriceLower9 and bearishPriceLower50
+
+// bullish ema and vwap rules
+bullishEmas9And21GettingMomentun = (ema9 - ema21) >= (ema9[1] - ema21[1]) and (ema9[1] - ema21[1]) >= (ema9[2] - ema21[2]) and open >= vwap
+
+// bearish ema and vwap rules
+bearishEmas9And21GettingMomentun = (ema21 - ema9) >= (ema21[1] - ema9[1]) and (ema21[1] - ema9[1]) >= (ema21[2] - ema9[2]) and open <= vwap
+
+// macd divergence
+bullishMacd = histLine > histLine[1] and histLine[1] > 0
+bearishMacd = histLine < histLine[1] and histLine[1] < 0
+
+bullishSetup = bullishEmas9And21GettingMomentun and bullishCandle and bullishPriceRules and bullishMacd
+bearishSetup = bearishEmas9And21GettingMomentun and bearishCandle and bearishPriceRules and bearishMacd
+
+plotshape(series = bullishSetup, title = "bullishSetup", style = shape.arrowup, location = location.belowbar, color = color.new(color = color.green, transp = 0), text = "CONTINUATION", textcolor = color.new(color = color.green, transp = 0), size = size.huge)
+plotshape(series = bearishSetup, title = "bearishSetup", style = shape.arrowdown, location = location.abovebar, color = color.new(color = color.green, transp = 0), text = "CONTINUATION", textcolor = color.new(color = color.green, transp = 0), size = size.huge)
+
+// send alert
+alertcondition(bullishSetup or bearishSetup, title = "Trend follow multiple TF (ema, vwap, candle patterns)", message = "Trend follow (ema, vwap, candle patterns) at {{ticker}}")

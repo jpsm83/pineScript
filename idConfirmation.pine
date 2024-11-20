@@ -1,0 +1,65 @@
+//@version=5
+indicator(title='Scalping', overlay=true)
+
+// setting the time frames
+currentTimeFrame = timeframe.period
+higherTimeFrame = switch currentTimeFrame
+    "5" =>"30"
+    "30" => "180"
+    "60" => "360"
+    "240" => "1D"
+    "1D" => "4D"
+
+// get indicators values
+[macdLine, signalLine, histLine] = request.security(syminfo.tickerid, timeframe.period, ta.macd(close, 12, 26, 9), lookahead = barmerge.lookahead_on) // Does not repaint
+
+// get current emas
+ema9 = ta.ema(source = close, length = 9)
+ema21 = ta.ema(source = close, length = 21)
+ema50 = ta.ema(source = close, length = 50)
+
+// get higher emas
+ema200FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 200), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint 
+ema50FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint 
+
+// Inputs
+htm50Band = input.float(defval = 2 , title = "Htf 50Ema Band Sensitivity", options = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4])
+
+// offset distance from htm ema50
+higherOffsetEma50Htf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(high, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) + htm50Band* (request.security(syminfo.tickerid, higherTimeFrame, ta.ema(high, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) - ema50FromHigherTf)
+lowerOffsetEma50Htf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(low, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) - htm50Band* (ema50FromHigherTf - request.security(syminfo.tickerid, higherTimeFrame, ta.ema(low, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on))
+
+//volume
+volumeUp = volume > volume[1]
+
+// ==================================================================================================================================================================================================
+// Confirmation ===================================================================================================================================================
+// ==================================================================================================================================================================================================
+
+// emas direction
+bullish9_21Emas = ema9 > ema9[1] and ema21 > ema21[1] and ema50 > ema50[1] and ema9 > ema21
+bearish9_21Emas = ema9 < ema9[1] and ema21 < ema21[1] and ema50 < ema50[1] and ema9 < ema21
+
+// price open close relate to band ema50
+bullishPriceBand = close > lowerOffsetEma50Htf and close < higherOffsetEma50Htf
+bearishPriceBand = close < higherOffsetEma50Htf and close > lowerOffsetEma50Htf
+
+// macd divergence
+bullishMacd = histLine > histLine[1] and signalLine < 0 and signalLine < macdLine
+bearishMacd = histLine < histLine[1] and signalLine > 0 and signalLine > macdLine
+
+// candle
+bodyCandle = math.abs(close - open) > math.abs(close[1] - open[1])
+
+bullishCandle = close > open
+bearishCandle = close < open
+
+bullishSetup = bullish9_21Emas and bullishPriceBand and bullishMacd and barstate.isconfirmed and bodyCandle and bullishCandle and volumeUp
+bearishSetup = bearish9_21Emas and bearishPriceBand and bearishMacd and barstate.isconfirmed and bodyCandle and bearishCandle and volumeUp
+
+// draw data to chart
+plotshape(bullishSetup, style=shape.arrowup, color=color.yellow, location=location.belowbar, size = size.huge, text = "BULL", textcolor = color.yellow)
+plotshape(bearishSetup, style=shape.arrowdown, color=color.yellow, location=location.abovebar, size = size.huge, text = "BEAR", textcolor = color.yellow)
+
+// Define your alert condition
+alertcondition(bullishSetup or bearishSetup , title="Confirmation", message="Confirmation at {{ticker}}")

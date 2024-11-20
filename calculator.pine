@@ -1,0 +1,39 @@
+//@version=5
+indicator('Stop Loss and Take Profit Calculator', overlay=false)
+
+// Define the inputs
+base_currency = input('USD', title='Base Currency')
+pip_decimal = input(4, title='Decimal Points')
+lot_size = input(1, title='Lot Size')
+stop_loss_pips = input(50, title='Stop Loss Pips')
+take_profit_pips = input(100, title='Take Profit Pips')
+
+// Get the tick size based on the market
+tick_size = syminfo.mintick
+if syminfo.type == 'FOREX' or syminfo.type == 'CFD'
+    if syminfo.ticker == 'USOIL' or syminfo.ticker == 'UKOIL' or syminfo.ticker == 'NGAS'
+        tick_size = 0.001
+        tick_size
+    else
+        tick_size = 0.0001
+        tick_size
+else if syminfo.type == 'FUTURES'
+    tick_size = syminfo.mintick
+    tick_size
+
+// Calculate the pip value
+pip_value = lot_size / tick_size * 10 * -pip_decimal
+
+// Get the current price level
+price_level = close
+
+// Calculate the stop loss and take profit values in USD
+stop_loss_usd = pip_value * stop_loss_pips
+take_profit_usd = pip_value * take_profit_pips
+
+// Display the stop loss and take profit values
+stop_loss_text = 'Stop Loss: ' + str.tostring(stop_loss_usd, '#.##') + ' ' + base_currency
+take_profit_text = 'Take Profit: ' + str.tostring(take_profit_usd, '#.##') + ' ' + base_currency
+label.new(bar_index, low, text=stop_loss_text, xloc=xloc.bar_time, yloc=yloc.price, color=color.red, textcolor=color.white, style=label.style_label_left)
+label.new(bar_index, high, text=take_profit_text, xloc=xloc.bar_time, yloc=yloc.price, color=color.green, textcolor=color.white, style=label.style_label_left)
+

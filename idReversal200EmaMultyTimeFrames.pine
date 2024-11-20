@@ -1,0 +1,95 @@
+// REVERSAL indicator for FOREX
+// It search for reversals whem macro price reach 200 ema
+// Then it look for a reversal momentun in the micro time frame
+// It uses emas, vwap and macd
+
+//@version=5
+indicator("Reversal indicator at 200ema, multy time frames", overlay=true)
+
+// bullish candlesticks pattern
+morningStart = (close[2] < open[2] and math.max(open[1], close[1]) < close[2] and open > math.max(open[1], close[1]) and close > open )
+hammer = (((high - low)>3*(open -close)) and  ((close - low)/(.001 + high - low) > 0.6) and ((open - low)/(.001 + high - low) > 0.6))
+bullishEngulfing = (open[1] > close[1] and close > open and close >=  open[1] and close[1] >=  open and close - open > open[1] - close[1] )
+bullishHarami = (open[1] > close[1] and close > open and close <=  open[1] and close[1] <=  open and close - open < open[1] - close[1] )
+piercingLine = (close[1] < open[1] and  open < low[1] and close > close[1] + ((open[1] - close[1])/2) and close < open[1])
+bullishBelt = (low  ==  open and  open < ta.lowest(10)[1] and open < close and close > ((high[1] - low[1]) / 2) + low[1])
+bullishKicker = (open[1]>close[1] and open>= open[1] and close>open)
+invertedHammer = (((high - low)>3*(open -close)) and  ((high - close)/(.001 + high - low) > 0.6) and ((high - open)/(.001 + high - low) > 0.6))
+bullishInsideBar = open[1] > close[1] and (0.30 * math.abs(open[1] - close[1])) > open[1] - close
+bullishCandle = morningStart or hammer or bullishEngulfing or bullishHarami or piercingLine or bullishBelt or bullishKicker or invertedHammer or bullishInsideBar
+
+// bearish candlesticks pattern
+bearishHarami = (close[1] > open[1] and open > close and open <=  close[1] and open[1] <=  close and open - close < close[1] - open[1] )
+eveningStar = (close[2] > open[2] and math.min(open[1], close[1]) > close[2] and open < math.min(open[1], close[1]) and close < open )
+bearishEngulfing = (close[1] > open[1] and open > close and open >=  close[1] and open[1] >=  close and open - close > close[1] - open[1] )
+shootingStar = (open[1] < close[1] and open > close[1] and high - math.max(open, close) >=  math.abs(open - close) * 3 and math.min(close, open) - low <=  math.abs(open - close))
+bearishKicker = (open[1]<close[1] and open<= open[1] and close<= open)
+hangingMan = (((high-low>4*(open-close))and((close-low)/(.001+high-low)>= 0.75)and((open-low)/(.001+high-low)>= 0.75)) and high[1] < open and high[2] < open)
+darkCloudCover = ((close[1]>open[1])and(((close[1]+open[1])/2)>close)and(open>close)and(open>close[1])and(close>open[1])and((open-close)/(.001+(high-low))>0.6))
+bearishInsideBar = open[1] < close[1] and (0.30 * math.abs(close[1] - open[1])) > close - open[1]
+bearishCandle = bearishHarami or eveningStar or bearishEngulfing or shootingStar or bearishKicker or hangingMan or darkCloudCover or bearishInsideBar
+
+// setting the time frames
+currentTimeFrame = timeframe.period
+higherTimeFrame = switch currentTimeFrame
+    "30" => "240"
+    "60" => "240"
+    "240" => "1D"
+    "1D" => "1W"
+
+// get indicators values
+[macdLine, signalLine, histLine] = ta.macd(close, 12, 26, 9)
+
+vwap = ta.vwap(source = close)
+plot(vwap, color = color.new(color = color.white, transp = 0), linewidth = 2)
+
+ema21 = ta.ema(close, 21)
+plot(ema21, title = "Ema21", color = color.yellow, linewidth = 1)
+ema9 = ta.ema(close, 9)
+plot(ema9, title = "Ema9", color = color.green, linewidth = 1)
+
+ema200FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 200))
+plot(ema200FromHigherTf, color = color.new(color = color.orange, transp = 0), linewidth = 2)
+ema50FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 50))
+ema21FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 21))
+ema9FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 9))
+
+// offset distance from higher ema200
+bullishOffsetEma200 = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(high, 200)) + 3 * (request.security(syminfo.tickerid, higherTimeFrame, ta.ema(high, 200)) -  ema200FromHigherTf)
+berishOffsetEma200 = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(low, 200)) - 3 * (ema200FromHigherTf -  request.security(syminfo.tickerid, higherTimeFrame, ta.ema(low, 200)))
+plot(bullishOffsetEma200, color = color.new(color = color.orange, transp = 70), linewidth = 1)
+plot(berishOffsetEma200, color = color.new(color = color.orange, transp = 70), linewidth = 1)
+
+// price position open and close
+bullishPosition = close >= ema200FromHigherTf and close >= vwap and open <= bullishOffsetEma200
+bearishPosition = close <= ema200FromHigherTf and close <= vwap and open >= berishOffsetEma200
+
+// ema 9/21 momentun higher time frame
+bullishEmaMomentunHigherTf = ema21FromHigherTf <= ema21FromHigherTf[1] and (ema21FromHigherTf - ema9FromHigherTf) <= (ema21FromHigherTf[1] - ema9FromHigherTf[1]) and (ema21FromHigherTf[1] - ema9FromHigherTf[1]) <= (ema21FromHigherTf[2] - ema9FromHigherTf[2])
+bearishEmaMomentunHigherTf = ema21FromHigherTf >= ema21FromHigherTf[1] and (ema9FromHigherTf - ema21FromHigherTf) <= (ema9FromHigherTf[1] - ema21FromHigherTf[1]) and (ema9FromHigherTf[1] - ema21FromHigherTf[1]) <= (ema9FromHigherTf[2] - ema21FromHigherTf[2])
+
+// ema 9/21 current time frame
+bullishEmaMomentun = ema9 > ema9[1] and (ema9 - ema21) > (ema9[1] - ema21[1]) and (ema9[1] - ema21[1]) > (ema9[2] - ema21[2])
+bearishEmaMomentun = ema9 < ema9[1] and (ema21 - ema9) > (ema21[1] - ema9[1]) and (ema21[1] - ema9[1]) > (ema21[2] - ema9[2])
+
+// macd divergence
+bullishMacd = histLine > histLine[1] and histLine[1] > 0
+bearishMacd = histLine < histLine[1] and histLine[1] < 0
+
+// trading setups
+bullishSetup = ta.lowest(source = low, length = 20) < ema200FromHigherTf and bullishPosition and bullishEmaMomentunHigherTf and bullishCandle and bullishEmaMomentun and bullishMacd
+bearishSetup = ta.highest(source = high, length = 20) > ema200FromHigherTf and bearishPosition and bearishEmaMomentunHigherTf and bearishCandle and bearishEmaMomentun and bearishMacd
+
+// draw data to chart
+plotshape(bullishSetup, style=shape.arrowup, color=color.red, location=location.belowbar, size = size.huge, text = "REVERSAL", textcolor = color.red)
+plotshape(bearishSetup, style=shape.arrowdown, color=color.red, location=location.abovebar, size = size.huge, text = "REVERSAL", textcolor = color.red)
+
+// send alert
+alertcondition(bullishSetup or bearishSetup, title = "30M - Macd divergence following trend direction, ema 9/21/200 and candles patterns", message = "*** 30M *** candle triggered a trade at {{ticker}}")
+
+
+
+
+
+
+

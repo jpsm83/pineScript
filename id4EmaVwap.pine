@@ -1,0 +1,73 @@
+// jpsm83 - joao paulo - may 2023
+// Emas, Vwap and Bias Columns
+// best in a dark mode chart (dark background)
+
+//@version=5
+indicator("Emas, Vwap and Bias Columns", overlay=true)
+
+currentTimeFrame = timeframe.period
+higherTimeFrame = switch currentTimeFrame
+    "1" => "5"
+    "5" =>"30"
+    "30" => "180"
+    "60" => "360"
+    "240" => "1D"
+    "1D" => "4D"
+
+showVwap = input(true, "Show Vwap")
+vwapColor = input(color.new(color.white, 90), "Vwap color")
+
+showEMA1 = input(true, "Show EMA1")
+ma1Value = input.int(defval = 9, title = "EMA1", minval = 1, maxval = 221, step = 1)
+ma1Color = input(color.new(color.green, 90), "EMA1 color")
+
+showEMA2 = input(true, "Show EMA2")
+ma2Value = input.int(defval = 21, title = "EMA2", minval = 1, maxval = 300, step = 1)
+ma2Color = input(color.new(color.yellow, 90), "EMA2 color")
+
+shoeEMA3 = input(true, "Show EMA3")
+ma3Value = input.int(defval = 32, title = "EMA3", minval = 1, maxval = 300, step = 1)
+ma3Color = input(color.new(color.white, 90), "EMA3 color")
+
+showEMA4 = input(true, "Show EMA4")
+ma4Value = input.int(defval = 50, title = "EMA4", minval = 1, maxval = 300, step = 1)
+ma4Color = input(color.new(color.red, 90), "EMA4 color")
+
+showEMA5 = input(true, "Show EMA5")
+ma5Value = input.int(defval = 100, title = "EMA5", minval = 1, maxval = 300, step = 1)
+ma5Color = input(color.new(color.blue, 90), "EMA5 color")
+
+showEMA6 = input(true, "Show EMA6")
+ma6Value = input.int(defval = 200, title = "EMA6", minval = 1, maxval = 300, step = 1)
+ma6Color = input(color.new(color.orange, 90), "EMA6 color")
+
+// get higher mas
+ma50FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint 
+
+vwap = ta.vwap(source = close)
+plot(showVwap ? vwap : na, title = "Vwap", color = vwapColor)
+ma1 =ta.ema(close, ma1Value)
+plot(showEMA1 ? ma1 : na, title = "EMA1", color = ma1Color)
+ma2 = ta.ema(close, ma2Value)
+plot(showEMA2 ? ma2 : na, title = "EMA2", color = ma2Color)
+ma3 = ta.ema(close, ma3Value)
+plot(shoeEMA3 ? ma3 : na, title = "EMA3", color = ma3Color)
+ma4 = ta.ema(close, ma4Value)
+plot(showEMA4 ? ma4 : na, title = "EMA4", color = ma4Color)
+ma5 = ta.ema(close, ma5Value)
+plot(showEMA5 ? ma5 : na, title = "EMA5", color = ma5Color)
+ma6 = ta.ema(close, ma6Value)
+plot(showEMA6 ? ma6 : na, title = "EMA6", color = ma6Color)
+
+// =================================================================================================================
+// ======== BUY SELL COLLUMNS ======================================================================================
+// =================================================================================================================
+
+showColumns = input(true, "BIAS Columns")
+
+bullishBias = close > ma50FromHigherTf and close > ta.ema(close, 200) and barstate.isconfirmed
+bearishBias = close < ma50FromHigherTf and close < ta.ema(close, 200) and barstate.isconfirmed
+
+columnsColor = bullishBias ? color.new(color.green, 95) : bearishBias ? color.new(color.red, 95) : na
+
+bgcolor(showColumns ? columnsColor : na)

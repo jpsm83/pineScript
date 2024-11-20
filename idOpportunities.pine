@@ -1,0 +1,76 @@
+// jpsm83 - joao paulo - march 2023
+
+// REGRAS DO INDICADOR PARA DAR SINAL DE COMPRA OU VENDA
+
+// COMPRA (BULL) LONG
+// 1- A ema9 da vela de agora tem que estar acima do ema9 da vela anterior
+// 2- A ema21 da vela de agora tem que estar acima do ema21 da vela anterior
+// 3- A ema50 da vela de agora tem que estar acima do ema50 da vela anterior
+// 4- A ema9 tem que estar acima da ema21 na vela de agora
+// 5- Criei uma zona que acompanha a ema51 de um tempo maior do que o do chart que estoy analizando,
+//    seria como se tivesse deixado a linha da ema51 bastante gorda em un tempo maior.
+//    5m => 30m  /  30m => 3h  /  1h => 6h  /  4h => 1D  /  1D => 4D
+// 5- Preco que a vela termina tem que estar dentro dessa zona que foi creada na ema50
+// 6- Uso o MACD, ele tem q estar subindo en ralaçao con ele mesmo uma vela anterior
+// 7- A linha de sinal do MACD tem que estar abaixo de 0 e por encima da linha real de macdLine
+// 8- Toda essa analize e feita quando a vela termina e começa outra
+// 9- Si TODAS regras sao validas na vela, o programa imprime uma seta no chart e me manda un alerta no celular con o par e o preco
+
+// VENDA (BEAR) sort
+// EXATAMENTE como as regras da compra mas ao reverso
+
+//@version=5
+indicator("Opportunities", overlay=true)
+
+// setting the time frames
+currentTimeFrame = timeframe.period
+higherTimeFrame = switch currentTimeFrame
+    "5" =>"30"
+    "30" => "180"
+    "60" => "360"
+    "240" => "1D"
+    "1D" => "4D"
+
+// get indicators values
+[macdLine, signalLine, histLine] = request.security(syminfo.tickerid, timeframe.period, ta.macd(close, 12, 26, 9), lookahead = barmerge.lookahead_on) // Does not repaint
+
+// get current emas
+ema9 = ta.ema(source = close, length = 9)
+ema21 = ta.ema(source = close, length = 21)
+ema50 = ta.ema(source = close, length = 50)
+
+// get higher emas
+ema50FromHigherTf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint 
+
+// Inputs
+htm50Band = input.float(defval = 2 , title = "Htf 50Ema Band Sensitivity", options = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4])
+
+// offset distance from htm ema50
+higherOffsetEma50Htf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(high, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) + htm50Band* (request.security(syminfo.tickerid, higherTimeFrame, ta.ema(high, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) - ema50FromHigherTf)
+lowerOffsetEma50Htf = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(low, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) - htm50Band* (ema50FromHigherTf - request.security(syminfo.tickerid, higherTimeFrame, ta.ema(low, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on))
+
+// ==================================================================================================================================================================================================
+// OPPORTUNITIES ===================================================================================================================================================
+// ==================================================================================================================================================================================================
+
+// emas direction
+bullish9_21Emas = ema9 > ema9[1] and ema21 > ema21[1] and ema50 > ema50[1] and ema9 > ema21
+bearish9_21Emas = ema9 < ema9[1] and ema21 < ema21[1] and ema50 < ema50[1] and ema9 < ema21
+
+// price open close relate to band ema50
+bullishPriceBand = close > lowerOffsetEma50Htf and close < higherOffsetEma50Htf
+bearishPriceBand = close < higherOffsetEma50Htf and close > lowerOffsetEma50Htf
+
+// macd divergence
+bullishMacd = histLine > histLine[1] and signalLine < 0 and signalLine < macdLine
+bearishMacd = histLine < histLine[1] and signalLine > 0 and signalLine > macdLine
+
+bullishSetup = bullish9_21Emas and bullishPriceBand and bullishMacd and barstate.isconfirmed
+bearishSetup = bearish9_21Emas and bearishPriceBand and bearishMacd and barstate.isconfirmed
+
+// draw data to chart
+plotshape(bullishSetup, style=shape.arrowup, color=color.rgb(10, 88, 0), location=location.belowbar, size = size.huge, text = "BULL", textcolor = color.rgb(10, 88, 0))
+plotshape(bearishSetup, style=shape.arrowdown, color=color.rgb(135, 39, 39), location=location.abovebar, size = size.huge, text = "BEAR", textcolor = color.rgb(135, 39, 39))
+
+// Define your alert condition
+alertcondition(bullishSetup or bearishSetup , title="Opportunities", message="Opportunities at {{ticker}}")

@@ -1,0 +1,61 @@
+//@version=5
+indicator("Follow Trend HTF using ADX Indicator", shorttitle="MI", overlay=true)
+
+// Input for higher time frame
+higherTimeFrame = input.string("240", title = "Higher Time Frame", options = ["15", "30", "60", "240", "D", "W", "M"], group = "Higher Time Frame")
+
+// ADX Indicator
+len = input(14)
+th = input(20)
+
+TrueRange = math.max(math.max(high - low, math.abs(high - nz(close[1]))), math.abs(low - nz(close[1])))
+DirectionalMovementPlus = high - nz(high[1]) > nz(low[1]) - low ? math.max(high - nz(high[1]), 0) : 0
+DirectionalMovementMinus = nz(low[1]) - low > high - nz(high[1]) ? math.max(nz(low[1]) - low, 0) : 0
+
+SmoothedTrueRange = 0.0
+SmoothedTrueRange := nz(SmoothedTrueRange[1]) - nz(SmoothedTrueRange[1]) / len + TrueRange
+
+SmoothedDirectionalMovementPlus = 0.0
+SmoothedDirectionalMovementPlus := nz(SmoothedDirectionalMovementPlus[1]) - nz(SmoothedDirectionalMovementPlus[1]) / len + DirectionalMovementPlus
+
+SmoothedDirectionalMovementMinus = 0.0
+SmoothedDirectionalMovementMinus := nz(SmoothedDirectionalMovementMinus[1]) - nz(SmoothedDirectionalMovementMinus[1]) / len + DirectionalMovementMinus
+
+DIPlus = SmoothedDirectionalMovementPlus / SmoothedTrueRange * 100
+DIMinus = SmoothedDirectionalMovementMinus / SmoothedTrueRange * 100
+DX = math.abs(DIPlus - DIMinus) / (DIPlus + DIMinus) * 100
+ADX = ta.sma(DX, len)
+
+// Get indicator values
+ema200_4h = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 200), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint 
+ema50_4h = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 50), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint
+ema20_4h = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 20), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint
+ema10_4h = request.security(syminfo.tickerid, higherTimeFrame, ta.ema(close, 10), gaps = barmerge.gaps_off, lookahead =  barmerge.lookahead_on) // Does not repaint
+
+// Check buy/sell conditions
+var float bias = na
+
+buyBias = ema10_4h > ema20_4h and ema20_4h > ema50_4h and ema50_4h > ema200_4h
+sellBias = ema10_4h < ema20_4h and ema20_4h < ema50_4h and ema50_4h < ema200_4h
+bias := buyBias ? 1 : sellBias ? 2 : 0
+
+buyCondition = ta.crossover(DIPlus, DIMinus) and bias == 1
+sellCondition = ta.crossunder(DIPlus, DIMinus) and bias == 2
+
+// alerts condictions
+alertcondition(buyCondition, title="Buy Signal", message="Buy Signal")
+alertcondition(sellCondition, title="Sell Signal", message="Sell Signal")
+
+// plot shapes
+plotshape(buyCondition, title="Buy Signal", location=location.abovebar, color=color.green, style=shape.labelup, size=size.small)
+plotshape(sellCondition, title="Sell Signal", location=location.abovebar, color=color.red, style=shape.labeldown, size=size.small)
+
+// Draw vertical line when bias is 1
+bgcolor(bias == 1 ? color.new(color.green, 95) : na)
+bgcolor(bias == 2 ? color.new(color.red, 95) : na)
+
+// Plot ADX
+plot(DIPlus, color=color.new(color.green, 0), title='DI+') // DI+ signal line
+plot(DIMinus, color=color.new(color.red, 0), title='DI-') // DI- cross line
+plot(ADX, color=color.new(color.navy, 0), title='ADX') // ADX line
+hline(th, color=color.black) // ADX threshold line
